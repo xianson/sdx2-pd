@@ -10,6 +10,8 @@ const double RPM_SAMPLE_S   = 8.0;
 const double RESCAN_S       = 30.0;
 const int    LOG_WAVES      = 24;
 const double DAMAGE_POLL_S  = 1.0;
+const double LEAK_RANGE_M   = 250.0;
+const double BAND_STALE_S   = 1.5;
 const string IGC_TAG        = "FleetPD.v1";
 const int    PEER_TIMEOUT   = 30;
 const bool   FLEET_TILE     = true;
@@ -41,6 +43,9 @@ public readonly List<int> Parts = new List<int>();
 public double AppliedRange = -1.0;
 public int    Descents;
 public int    _idx;
+public int    Band = -1;
+public double BandAt = -1.0;
+public double BandRangeM = -1.0;
 }
 readonly List<Mount> Mounts = new List<Mount>();
 class Learned { public double Rpm; public bool Exempt; public double BaseRange; }
@@ -58,6 +63,8 @@ class Wave {
 public int    N, PeakIn, Ended, Kills, Leaks, BlocksLost, Fired, Descents;
 public double Start, Dur, PeakHeat;
 public bool   Vanilla;
+public int    LeakByRange, LeakByDamage;
+public double ClosestM = -1.0;
 }
 Wave Cur;
 readonly List<Wave> Log = new List<Wave>();
@@ -183,6 +190,7 @@ ById[b.EntityId] = mt;
 foreach (var kv in _map) {
 mt.Parts.Add(kv.Value);
 Wc.MonitorProjectileCallback(b, kv.Value, OnProjectile);
+Wc.MonitorEvents(b, kv.Value, OnWeaponEvent);
 }
 spread++;
 }
@@ -193,6 +201,28 @@ return ((n + off) % RUNG_COUNT + RUNG_COUNT) % RUNG_COUNT;
 }
 static bool Alive(IMyTerminalBlock b) {
 return b != null && !b.Closed && b.CubeGrid != null;
+}
+void OnWeaponEvent(int state, bool active) {
+if (!active || state < 17 || state > 20) return;
+double frac = state == 17 ? 1.00 : state == 18 ? 0.75 : state == 19 ? 0.50 : 0.25;
+for (int i = 0; i < Mounts.Count; i++) {
+var m = Mounts[i];
+if (m.InFlight <= 0 && m.Band < 0) continue;
+double r = m.AppliedRange > 0 ? m.AppliedRange * frac : 0.0;
+if (r <= 0) continue;
+m.Band = state;
+m.BandAt = Now;
+m.BandRangeM = r;
+}
+}
+double ClosestSeen() {
+double best = -1.0;
+for (int i = 0; i < Mounts.Count; i++) {
+var m = Mounts[i];
+if (m.BandAt < 0 || Now - m.BandAt > BAND_STALE_S) continue;
+if (best < 0 || m.BandRangeM < best) best = m.BandRangeM;
+}
+return best;
 }
 void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
 Vector3D pos, bool start) {
@@ -252,10 +282,17 @@ if (Inbound < PrevInbound) PendingDrops += PrevInbound - Inbound;
 PrevInbound = Inbound;
 if (Cur != null) {
 if (Inbound > Cur.PeakIn) Cur.PeakIn = Inbound;
+double near = ClosestSeen();
+if (PendingDrops > 0 && near >= 0.0 && near <= LEAK_RANGE_M) {
+Cur.Leaks += PendingDrops;
+Cur.LeakByRange += PendingDrops;
+PendingDrops = 0;
+}
+if (near >= 0.0 && (Cur.ClosestM < 0.0 || near < Cur.ClosestM)) Cur.ClosestM = near;
 if (lostNow > 0) {
 Cur.BlocksLost += lostNow;
 int leak = PendingDrops < lostNow ? PendingDrops : lostNow;
-if (leak > 0) { Cur.Leaks += leak; PendingDrops -= leak; }
+if (leak > 0) { Cur.Leaks += leak; Cur.LeakByDamage += leak; PendingDrops -= leak; }
 }
 double hot = 0.0;
 foreach (var m in Mounts) {
@@ -374,11 +411,13 @@ sb.Append("FleetPD log   grid=").Append(Me.CubeGrid.EntityId % 1000000L)
 .Append("   hull ").Append(HullOrdinal + 1).Append('/').Append(HullCount)
 .Append("   mounts=").Append(Mounts.Count).AppendLine();
 sb.AppendLine("kill~ and leak~ are ESTIMATES. Nothing reports being hit, so the script");
-sb.AppendLine("correlates a fall in inbound count with a fall in grid block count.");
-sb.AppendLine("A leaker that destroys nothing is missed; splash may be overcounted.");
+sb.AppendLine("A fall in inbound count is scored a LEAK if any mount reported its target");
+sb.AppendLine("inside " + LEAK_RANGE_M.ToString("0") + " m just beforehand (WeaponCore TargetRanged bands),");
+sb.AppendLine("or if grid blocks were lost at the same moment. Otherwise it is a kill.");
+sb.AppendLine("byRng works with damage disabled; byDmg does not.");
 sb.AppendLine("Only waves fought with debug ON are recorded.");
 sb.AppendLine();
-sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  blocks  fired  r/kill~  desc  heat");
+sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  byRng  byDmg  closest  fired  r/kill~  heat");
 for (int i = 0; i < Log.Count; i++) {
 var w = Log[i];
 sb.Append(w.N.ToString().PadLeft(4))
@@ -388,10 +427,11 @@ sb.Append(w.N.ToString().PadLeft(4))
 .Append(w.Ended.ToString().PadLeft(7))
 .Append(w.Kills.ToString().PadLeft(7))
 .Append(w.Leaks.ToString().PadLeft(7))
-.Append(w.BlocksLost.ToString().PadLeft(8))
+.Append(w.LeakByRange.ToString().PadLeft(7))
+.Append(w.LeakByDamage.ToString().PadLeft(7))
+.Append((w.ClosestM >= 0 ? ((int)w.ClosestM).ToString() + "m" : "-").PadLeft(9))
 .Append(w.Fired.ToString().PadLeft(7))
 .Append((w.Kills > 0 ? ((double)w.Fired / w.Kills).ToString("0.0") : "-").PadLeft(9))
-.Append(w.Descents.ToString().PadLeft(6))
 .Append(((int)(w.PeakHeat * 100)).ToString().PadLeft(5)).Append('%')
 .AppendLine();
 }

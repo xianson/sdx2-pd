@@ -83,6 +83,8 @@ const double RESCAN_S       = 30.0;   // pick up built/repaired/destroyed mounts
 // re-count, so the normal path costs only what fighting requires.
 const int    LOG_WAVES      = 24;     // waves retained in the log ring
 const double DAMAGE_POLL_S  = 1.0;    // how often to re-count blocks (damage sensor)
+const double LEAK_RANGE_M   = 250.0;  // target seen closer than this => scored a leak
+const double BAND_STALE_S   = 1.5;    // ignore a band report older than this
 const string IGC_TAG        = "FleetPD.v1";
 const int    PEER_TIMEOUT   = 30;     // runs before a silent peer is dropped
 const bool   FLEET_TILE     = true;   // offset opening rungs by hull ordinal
@@ -130,6 +132,9 @@ class Mount {
     public double AppliedRange = -1.0;   // last value actually pushed
     public int    Descents;              // diagnostics
     public int    _idx;                  // stable display index
+    public int    Band = -1;             // last TargetRanged* seen (17..20)
+    public double BandAt = -1.0;         // when it was reported
+    public double BandRangeM = -1.0;     // upper bound in metres implied by it
 }
 
 readonly List<Mount> Mounts = new List<Mount>();
@@ -162,6 +167,8 @@ class Wave {
     public int    N, PeakIn, Ended, Kills, Leaks, BlocksLost, Fired, Descents;
     public double Start, Dur, PeakHeat;
     public bool   Vanilla;
+    public int    LeakByRange, LeakByDamage;
+    public double ClosestM = -1.0;
 }
 Wave Cur;
 readonly List<Wave> Log = new List<Wave>();
@@ -344,6 +351,7 @@ void Discover() {
         foreach (var kv in _map) {
             mt.Parts.Add(kv.Value);
             Wc.MonitorProjectileCallback(b, kv.Value, OnProjectile);
+            Wc.MonitorEvents(b, kv.Value, OnWeaponEvent);
         }
         spread++;
     }
@@ -366,6 +374,35 @@ static bool Alive(IMyTerminalBlock b) {
     // NB: IMyCubeGrid in the INGAME api has no MarkedForClose (that is mod-api only),
     // so Closed plus a non-null grid is the strongest check available to a PB.
     return b != null && !b.Closed && b.CubeGrid != null;
+}
+
+// TargetRanged* band report. The callback carries no block identity, so the band is
+// applied to whichever mounts are currently engaging -- coarse, but the aggregate
+// minimum is what the leak rule uses and that is dominated by the closest mount anyway.
+void OnWeaponEvent(int state, bool active) {
+    if (!active || state < 17 || state > 20) return;
+    // 17 -> <=100%, 18 -> <=75%, 19 -> <=50%, 20 -> <=25% of that mount's current gate
+    double frac = state == 17 ? 1.00 : state == 18 ? 0.75 : state == 19 ? 0.50 : 0.25;
+    for (int i = 0; i < Mounts.Count; i++) {
+        var m = Mounts[i];
+        if (m.InFlight <= 0 && m.Band < 0) continue;   // not engaging anything
+        double r = m.AppliedRange > 0 ? m.AppliedRange * frac : 0.0;
+        if (r <= 0) continue;
+        m.Band = state;
+        m.BandAt = Now;
+        m.BandRangeM = r;
+    }
+}
+
+// Closest target range implied by any fresh band report, or -1 if nothing recent.
+double ClosestSeen() {
+    double best = -1.0;
+    for (int i = 0; i < Mounts.Count; i++) {
+        var m = Mounts[i];
+        if (m.BandAt < 0 || Now - m.BandAt > BAND_STALE_S) continue;
+        if (best < 0 || m.BandRangeM < best) best = m.BandRangeM;
+    }
+    return best;
 }
 
 void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
@@ -448,10 +485,22 @@ public void Main(string arg, UpdateType src) {
 
     if (Cur != null) {
         if (Inbound > Cur.PeakIn) Cur.PeakIn = Inbound;
+
+        // RANGE-INFERRED LEAKS. Works with damage disabled, which the block sensor
+        // cannot. If something was seen inside LEAK_RANGE_M in the last moment, endings
+        // recorded now are scored leaks.
+        double near = ClosestSeen();
+        if (PendingDrops > 0 && near >= 0.0 && near <= LEAK_RANGE_M) {
+            Cur.Leaks += PendingDrops;
+            Cur.LeakByRange += PendingDrops;
+            PendingDrops = 0;
+        }
+        if (near >= 0.0 && (Cur.ClosestM < 0.0 || near < Cur.ClosestM)) Cur.ClosestM = near;
+
         if (lostNow > 0) {
             Cur.BlocksLost += lostNow;
             int leak = PendingDrops < lostNow ? PendingDrops : lostNow;
-            if (leak > 0) { Cur.Leaks += leak; PendingDrops -= leak; }
+            if (leak > 0) { Cur.Leaks += leak; Cur.LeakByDamage += leak; PendingDrops -= leak; }
         }
         double hot = 0.0;
         foreach (var m in Mounts) {
@@ -603,11 +652,13 @@ void WriteLog() {
       .Append("   hull ").Append(HullOrdinal + 1).Append('/').Append(HullCount)
       .Append("   mounts=").Append(Mounts.Count).AppendLine();
     sb.AppendLine("kill~ and leak~ are ESTIMATES. Nothing reports being hit, so the script");
-    sb.AppendLine("correlates a fall in inbound count with a fall in grid block count.");
-    sb.AppendLine("A leaker that destroys nothing is missed; splash may be overcounted.");
+    sb.AppendLine("A fall in inbound count is scored a LEAK if any mount reported its target");
+    sb.AppendLine("inside " + LEAK_RANGE_M.ToString("0") + " m just beforehand (WeaponCore TargetRanged bands),");
+    sb.AppendLine("or if grid blocks were lost at the same moment. Otherwise it is a kill.");
+    sb.AppendLine("byRng works with damage disabled; byDmg does not.");
     sb.AppendLine("Only waves fought with debug ON are recorded.");
     sb.AppendLine();
-    sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  blocks  fired  r/kill~  desc  heat");
+    sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  byRng  byDmg  closest  fired  r/kill~  heat");
     for (int i = 0; i < Log.Count; i++) {
         var w = Log[i];
         sb.Append(w.N.ToString().PadLeft(4))
@@ -617,10 +668,11 @@ void WriteLog() {
           .Append(w.Ended.ToString().PadLeft(7))
           .Append(w.Kills.ToString().PadLeft(7))
           .Append(w.Leaks.ToString().PadLeft(7))
-          .Append(w.BlocksLost.ToString().PadLeft(8))
+          .Append(w.LeakByRange.ToString().PadLeft(7))
+          .Append(w.LeakByDamage.ToString().PadLeft(7))
+          .Append((w.ClosestM >= 0 ? ((int)w.ClosestM).ToString() + "m" : "-").PadLeft(9))
           .Append(w.Fired.ToString().PadLeft(7))
           .Append((w.Kills > 0 ? ((double)w.Fired / w.Kills).ToString("0.0") : "-").PadLeft(9))
-          .Append(w.Descents.ToString().PadLeft(6))
           .Append(((int)(w.PeakHeat * 100)).ToString().PadLeft(5)).Append('%')
           .AppendLine();
     }
