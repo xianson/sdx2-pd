@@ -4,7 +4,7 @@
 const int    K_INFLIGHT     = 4;
 const double REFRACTORY_S   = 0.35;
 const int    WAVE_GAP_TICKS = 60;
-const double MIN_RANGE_M    = 300.0;
+const double RANGE_FLOOR_M  = 400.0;
 const double MIN_RPM        = 100.0;
 const double RPM_SAMPLE_S   = 8.0;
 const double RESCAN_S       = 30.0;
@@ -12,6 +12,7 @@ const int    LOG_WAVES      = 24;
 const double DAMAGE_POLL_S  = 1.0;
 const double LEAK_RANGE_M   = 250.0;
 const double BAND_STALE_S   = 1.5;
+const double HIT_FRAC       = 0.92;
 const string IGC_TAG        = "FleetPD.v1";
 const int    PEER_TIMEOUT   = 30;
 const bool   FLEET_TILE     = true;
@@ -64,6 +65,8 @@ public int    N, PeakIn, Ended, Kills, Leaks, BlocksLost, Fired, Descents;
 public double Start, Dur, PeakHeat;
 public bool   Vanilla;
 public int    LeakByRange, LeakByDamage;
+public int    Hits, Flyouts;
+public double Orphan, FlightSum;
 public double ClosestM = -1.0;
 }
 Wave Cur;
@@ -74,6 +77,11 @@ int    BlockCount = -1;
 double DamagePollDue;
 int    TotKills, TotLeaks, TotBlocks, TotFired;
 int    _waveFiredAt, _waveDescAt;
+struct Shot { public Vector3D P; public double T; public double Reach; }
+readonly Dictionary<ulong, Shot> Airborne = new Dictionary<ulong, Shot>();
+int    ShotHits, ShotFlyouts;
+double ShotFlightSum;
+double OrphanEst;
 bool Vanilla;
 bool Debug;
 int  VKills, VLeaks, VBlocks, VFired, VWaves;
@@ -229,8 +237,35 @@ Vector3D pos, bool start) {
 Mount m;
 if (!ById.TryGetValue(coreEnt, out m)) return;
 if (targetId != -1) return;
-if (start) { m.InFlight++; m.Spawns++; TotalSpawns++; }
-else if (m.InFlight > 0) m.InFlight--;
+if (start) {
+m.InFlight++;
+m.Spawns++;
+TotalSpawns++;
+if (Debug) {
+var sh = new Shot();
+sh.P = pos;
+sh.T = Now;
+sh.Reach = m.BaseRange;
+Airborne[projId] = sh;
+}
+return;
+}
+if (m.InFlight > 0) m.InFlight--;
+if (!Debug) return;
+Shot rec;
+if (!Airborne.TryGetValue(projId, out rec)) return;
+Airborne.Remove(projId);
+double flew = Vector3D.Distance(rec.P, pos);
+double dt = Now - rec.T;
+ShotFlightSum += dt;
+if (Cur != null) Cur.FlightSum += dt;
+if (rec.Reach > 0 && flew < rec.Reach * HIT_FRAC) {
+ShotHits++;
+if (Cur != null) Cur.Hits++;
+} else {
+ShotFlyouts++;
+if (Cur != null) Cur.Flyouts++;
+}
 }
 public void Main(string arg, UpdateType src) {
 if (!Ready) {
@@ -278,7 +313,17 @@ int n = _dmgScan.Count;
 if (BlockCount >= 0 && n < BlockCount) lostNow = BlockCount - n;
 BlockCount = n;
 }
-if (Inbound < PrevInbound) PendingDrops += PrevInbound - Inbound;
+if (Inbound < PrevInbound) {
+int died = PrevInbound - Inbound;
+PendingDrops += died;
+if (Debug && PrevInbound > 0) {
+int air = 0;
+for (int i = 0; i < Mounts.Count; i++) air += Mounts[i].InFlight;
+double orph = air * ((double)died / PrevInbound);
+OrphanEst += orph;
+if (Cur != null) Cur.Orphan += orph;
+}
+}
 PrevInbound = Inbound;
 if (Cur != null) {
 if (Inbound > Cur.PeakIn) Cur.PeakIn = Inbound;
@@ -369,11 +414,14 @@ m.Rung++;
 m.LastDescend = Now;
 m.Descents++;
 }
-double want = m.BaseRange * RUNGS[m.Rung];
-if (want < MIN_RANGE_M) want = MIN_RANGE_M;
-SetRange(m, want);
+SetRange(m, RungRange(m, m.Rung));
 }
 if (Debug) Report(); else Status();
+}
+double RungRange(Mount m, int rung) {
+double span = m.BaseRange - RANGE_FLOOR_M;
+if (span <= 0.0) return m.BaseRange;
+return RANGE_FLOOR_M + span * RUNGS[rung];
 }
 void SetRange(Mount m, double r) {
 if (Math.Abs(r - m.AppliedRange) < 0.5) return;
@@ -417,7 +465,7 @@ sb.AppendLine("or if grid blocks were lost at the same moment. Otherwise it is a
 sb.AppendLine("byRng works with damage disabled; byDmg does not.");
 sb.AppendLine("Only waves fought with debug ON are recorded.");
 sb.AppendLine();
-sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  byRng  byDmg  closest  fired  r/kill~  heat");
+sb.AppendLine("wave  mode    dur  peakIn  kill~  leak~  closest  fired   hit%  flyout%  orphan~  tof  heat");
 for (int i = 0; i < Log.Count; i++) {
 var w = Log[i];
 sb.Append(w.N.ToString().PadLeft(4))
@@ -427,11 +475,13 @@ sb.Append(w.N.ToString().PadLeft(4))
 .Append(w.Ended.ToString().PadLeft(7))
 .Append(w.Kills.ToString().PadLeft(7))
 .Append(w.Leaks.ToString().PadLeft(7))
-.Append(w.LeakByRange.ToString().PadLeft(7))
-.Append(w.LeakByDamage.ToString().PadLeft(7))
 .Append((w.ClosestM >= 0 ? ((int)w.ClosestM).ToString() + "m" : "-").PadLeft(9))
 .Append(w.Fired.ToString().PadLeft(7))
-.Append((w.Kills > 0 ? ((double)w.Fired / w.Kills).ToString("0.0") : "-").PadLeft(9))
+.Append(Pct(w.Hits, w.Hits + w.Flyouts).PadLeft(7))
+.Append(Pct(w.Flyouts, w.Hits + w.Flyouts).PadLeft(9))
+.Append(((int)w.Orphan).ToString().PadLeft(9))
+.Append((w.Hits + w.Flyouts > 0
+? (w.FlightSum / (w.Hits + w.Flyouts)).ToString("0.00") + "s" : "-").PadLeft(6))
 .Append(((int)(w.PeakHeat * 100)).ToString().PadLeft(5)).Append('%')
 .AppendLine();
 }
@@ -440,9 +490,24 @@ sb.AppendLine("mode      waves  kill~  leak~  blocks   fired  r/kill~  intercept
 AppendTotals(sb, "ACTIVE", WaveCount - VWaves, TotKills, TotLeaks, TotBlocks, TotFired);
 AppendTotals(sb, "VANILLA", VWaves, VKills, VLeaks, VBlocks, VFired);
 sb.AppendLine();
-sb.AppendLine("Run the PB with argument 'vanilla' to collect the passive control, then");
+sb.AppendLine();
+int res = ShotHits + ShotFlyouts;
+sb.Append("rounds resolved=").Append(res)
+.Append("  hit=").Append(Pct(ShotHits, res))
+.Append("  flyout=").Append(Pct(ShotFlyouts, res))
+.Append("  orphan~=").Append(((int)OrphanEst).ToString());
+if (res > 0) sb.Append("  meanToF=").Append((ShotFlightSum / res).ToString("0.00")).Append('s');
+sb.AppendLine();
+sb.AppendLine("hit = round ended short of its reach, so it ran into its target.");
+sb.AppendLine("flyout = ran out its full reach and hit nothing. orphan~ estimates how");
+sb.AppendLine("many of those were committed to a torpedo that died mid-flight.");
+sb.AppendLine();
+sb.AppendLine("Run the PB with argument \'vanilla\' to collect the passive control, then");
 sb.AppendLine("'active' to resume. Compare the two intercept rates above.");
 Me.CustomData = sb.ToString();
+}
+string Pct(int a, int b) {
+return b > 0 ? (100.0 * a / b).ToString("0") + "%" : "-";
 }
 void AppendTotals(StringBuilder sb, string label, int waves, int k, int l, int b, int f) {
 sb.Append(label.PadRight(9))
@@ -562,6 +627,11 @@ if (TotKills + TotLeaks > 0)
 sb.Append(" intercept=")
 .Append((100.0 * TotKills / (TotKills + TotLeaks)).ToString("0")).Append('%');
 sb.Append(" blocksLost=").Append(TotBlocks);
+int res2 = ShotHits + ShotFlyouts;
+if (res2 > 0)
+sb.Append("  hit=").Append(Pct(ShotHits, res2))
+.Append(" flyout=").Append(Pct(ShotFlyouts, res2))
+.Append(" orphan~=").Append((int)OrphanEst);
 if (Cur != null) sb.Append("  [wave ").Append(Cur.N).Append(" live]");
 sb.AppendLine();
 }

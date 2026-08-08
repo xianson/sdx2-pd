@@ -74,7 +74,11 @@
 const int    K_INFLIGHT     = 4;      // one kill's worth of committed rounds
 const double REFRACTORY_S   = 0.35;   // min seconds between descents
 const int    WAVE_GAP_TICKS = 60;     // PB runs with inbound==0 => wave is over
-const double MIN_RANGE_M    = 300.0;  // never gate a mount below this
+// Floor the ladder sits ON, not merely clamps to. Raise it if your mounts have a
+// large MinTargetDistance -- WeaponCore enforces one per weapon and it is not
+// readable from a PB. SDX2's flak is 1000 m, but flak is exempted by the RPM check
+// long before this matters.
+const double RANGE_FLOOR_M  = 400.0;
 const double MIN_RPM        = 100.0;  // below this, leave the mount ALONE
 const double RPM_SAMPLE_S   = 8.0;    // observation window for measured rate
 const double RESCAN_S       = 30.0;   // pick up built/repaired/destroyed mounts
@@ -85,6 +89,7 @@ const int    LOG_WAVES      = 24;     // waves retained in the log ring
 const double DAMAGE_POLL_S  = 1.0;    // how often to re-count blocks (damage sensor)
 const double LEAK_RANGE_M   = 250.0;  // target seen closer than this => scored a leak
 const double BAND_STALE_S   = 1.5;    // ignore a band report older than this
+const double HIT_FRAC       = 0.92;   // ended inside this fraction of reach => hit
 const string IGC_TAG        = "FleetPD.v1";
 const int    PEER_TIMEOUT   = 30;     // runs before a silent peer is dropped
 const bool   FLEET_TILE     = true;   // offset opening rungs by hull ordinal
@@ -168,6 +173,8 @@ class Wave {
     public double Start, Dur, PeakHeat;
     public bool   Vanilla;
     public int    LeakByRange, LeakByDamage;
+    public int    Hits, Flyouts;
+    public double Orphan, FlightSum;
     public double ClosestM = -1.0;
 }
 Wave Cur;
@@ -178,6 +185,13 @@ int    BlockCount = -1;
 double DamagePollDue;
 int    TotKills, TotLeaks, TotBlocks, TotFired;
 int    _waveFiredAt, _waveDescAt;
+// Round-level efficiency. Keyed by projectile id; entries are removed on the end
+// callback, so the dictionary is bounded by rounds currently in the air.
+struct Shot { public Vector3D P; public double T; public double Reach; }
+readonly Dictionary<ulong, Shot> Airborne = new Dictionary<ulong, Shot>();
+int    ShotHits, ShotFlyouts;
+double ShotFlightSum;
+double OrphanEst;
 // VANILLA MODE. Passive: mounts stay at full range and never descend, but every
 // statistic is still recorded. Toggle with the 'vanilla' / 'active' argument. Totals are
 // kept per mode so the log compares the two directly -- the in-game control for the
@@ -386,7 +400,7 @@ void OnWeaponEvent(int state, bool active) {
     for (int i = 0; i < Mounts.Count; i++) {
         var m = Mounts[i];
         if (m.InFlight <= 0 && m.Band < 0) continue;   // not engaging anything
-        double r = m.AppliedRange > 0 ? m.AppliedRange * frac : 0.0;
+        double r = m.AppliedRange > 0 ? m.AppliedRange * frac : 0.0;  // bands are of the CURRENT gate
         if (r <= 0) continue;
         m.Band = state;
         m.BandAt = Now;
@@ -414,8 +428,36 @@ void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
     // attributed to individual torpedoes — but a COUNT is all this needs, and
     // filtering on -1 keeps anti-grid fire from polluting it.
     if (targetId != -1) return;
-    if (start) { m.InFlight++; m.Spawns++; TotalSpawns++; }
-    else if (m.InFlight > 0) m.InFlight--;
+    if (start) {
+        m.InFlight++;
+        m.Spawns++;
+        TotalSpawns++;
+        if (Debug) {
+            var sh = new Shot();
+            sh.P = pos;
+            sh.T = Now;
+            sh.Reach = m.BaseRange;
+            Airborne[projId] = sh;
+        }
+        return;
+    }
+    if (m.InFlight > 0) m.InFlight--;
+    if (!Debug) return;
+    Shot rec;
+    if (!Airborne.TryGetValue(projId, out rec)) return;
+    Airborne.Remove(projId);
+    double flew = Vector3D.Distance(rec.P, pos);
+    double dt = Now - rec.T;
+    ShotFlightSum += dt;
+    if (Cur != null) Cur.FlightSum += dt;
+    // Short flight => it ran into its target. Full reach => it hit nothing.
+    if (rec.Reach > 0 && flew < rec.Reach * HIT_FRAC) {
+        ShotHits++;
+        if (Cur != null) Cur.Hits++;
+    } else {
+        ShotFlyouts++;
+        if (Cur != null) Cur.Flyouts++;
+    }
 }
 
 // ------------------------------------------------------------------- main
@@ -480,7 +522,19 @@ public void Main(string arg, UpdateType src) {
     }
 
     // ---- inbound delta: a fall means that many torpedoes ended, somehow.
-    if (Inbound < PrevInbound) PendingDrops += PrevInbound - Inbound;
+    if (Inbound < PrevInbound) {
+        int died = PrevInbound - Inbound;
+        PendingDrops += died;
+        // Orphaned-round estimate: of everything airborne right now, the share committed
+        // to the torpedoes that just died is about died / (live before they died).
+        if (Debug && PrevInbound > 0) {
+            int air = 0;
+            for (int i = 0; i < Mounts.Count; i++) air += Mounts[i].InFlight;
+            double orph = air * ((double)died / PrevInbound);
+            OrphanEst += orph;
+            if (Cur != null) Cur.Orphan += orph;
+        }
+    }
     PrevInbound = Inbound;
 
     if (Cur != null) {
@@ -600,9 +654,7 @@ public void Main(string arg, UpdateType src) {
             m.LastDescend = Now;
             m.Descents++;
         }
-        double want = m.BaseRange * RUNGS[m.Rung];
-        if (want < MIN_RANGE_M) want = MIN_RANGE_M;
-        SetRange(m, want);
+        SetRange(m, RungRange(m, m.Rung));
         // Fire is NEVER toggled. Every withholding policy tested lost.
     }
 
@@ -611,6 +663,14 @@ public void Main(string arg, UpdateType src) {
 
 // Single choke point for range changes, so the diagnostics can count them and we never
 // spam an unchanged value.
+// Rungs span FLOOR..base, so even the bottom rung keeps clear air above the weapon's
+// minimum engagement range instead of crowding it.
+double RungRange(Mount m, int rung) {
+    double span = m.BaseRange - RANGE_FLOOR_M;
+    if (span <= 0.0) return m.BaseRange;          // very short-ranged mount: leave it alone
+    return RANGE_FLOOR_M + span * RUNGS[rung];
+}
+
 void SetRange(Mount m, double r) {
     if (Math.Abs(r - m.AppliedRange) < 0.5) return;
     m.AppliedRange = r;
@@ -658,7 +718,7 @@ void WriteLog() {
     sb.AppendLine("byRng works with damage disabled; byDmg does not.");
     sb.AppendLine("Only waves fought with debug ON are recorded.");
     sb.AppendLine();
-    sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  byRng  byDmg  closest  fired  r/kill~  heat");
+    sb.AppendLine("wave  mode    dur  peakIn  kill~  leak~  closest  fired   hit%  flyout%  orphan~  tof  heat");
     for (int i = 0; i < Log.Count; i++) {
         var w = Log[i];
         sb.Append(w.N.ToString().PadLeft(4))
@@ -668,11 +728,13 @@ void WriteLog() {
           .Append(w.Ended.ToString().PadLeft(7))
           .Append(w.Kills.ToString().PadLeft(7))
           .Append(w.Leaks.ToString().PadLeft(7))
-          .Append(w.LeakByRange.ToString().PadLeft(7))
-          .Append(w.LeakByDamage.ToString().PadLeft(7))
           .Append((w.ClosestM >= 0 ? ((int)w.ClosestM).ToString() + "m" : "-").PadLeft(9))
           .Append(w.Fired.ToString().PadLeft(7))
-          .Append((w.Kills > 0 ? ((double)w.Fired / w.Kills).ToString("0.0") : "-").PadLeft(9))
+          .Append(Pct(w.Hits, w.Hits + w.Flyouts).PadLeft(7))
+          .Append(Pct(w.Flyouts, w.Hits + w.Flyouts).PadLeft(9))
+          .Append(((int)w.Orphan).ToString().PadLeft(9))
+          .Append((w.Hits + w.Flyouts > 0
+                   ? (w.FlightSum / (w.Hits + w.Flyouts)).ToString("0.00") + "s" : "-").PadLeft(6))
           .Append(((int)(w.PeakHeat * 100)).ToString().PadLeft(5)).Append('%')
           .AppendLine();
     }
@@ -681,9 +743,25 @@ void WriteLog() {
     AppendTotals(sb, "ACTIVE", WaveCount - VWaves, TotKills, TotLeaks, TotBlocks, TotFired);
     AppendTotals(sb, "VANILLA", VWaves, VKills, VLeaks, VBlocks, VFired);
     sb.AppendLine();
-    sb.AppendLine("Run the PB with argument 'vanilla' to collect the passive control, then");
+    sb.AppendLine();
+    int res = ShotHits + ShotFlyouts;
+    sb.Append("rounds resolved=").Append(res)
+      .Append("  hit=").Append(Pct(ShotHits, res))
+      .Append("  flyout=").Append(Pct(ShotFlyouts, res))
+      .Append("  orphan~=").Append(((int)OrphanEst).ToString());
+    if (res > 0) sb.Append("  meanToF=").Append((ShotFlightSum / res).ToString("0.00")).Append('s');
+    sb.AppendLine();
+    sb.AppendLine("hit = round ended short of its reach, so it ran into its target.");
+    sb.AppendLine("flyout = ran out its full reach and hit nothing. orphan~ estimates how");
+    sb.AppendLine("many of those were committed to a torpedo that died mid-flight.");
+    sb.AppendLine();
+    sb.AppendLine("Run the PB with argument \'vanilla\' to collect the passive control, then");
     sb.AppendLine("'active' to resume. Compare the two intercept rates above.");
     Me.CustomData = sb.ToString();
+}
+
+string Pct(int a, int b) {
+    return b > 0 ? (100.0 * a / b).ToString("0") + "%" : "-";
 }
 
 void AppendTotals(StringBuilder sb, string label, int waves, int k, int l, int b, int f) {
@@ -822,6 +900,11 @@ void Report() {
             sb.Append(" intercept=")
               .Append((100.0 * TotKills / (TotKills + TotLeaks)).ToString("0")).Append('%');
         sb.Append(" blocksLost=").Append(TotBlocks);
+        int res2 = ShotHits + ShotFlyouts;
+        if (res2 > 0)
+            sb.Append("  hit=").Append(Pct(ShotHits, res2))
+              .Append(" flyout=").Append(Pct(ShotFlyouts, res2))
+              .Append(" orphan~=").Append((int)OrphanEst);
         if (Cur != null) sb.Append("  [wave ").Append(Cur.N).Append(" live]");
         sb.AppendLine();
     }
