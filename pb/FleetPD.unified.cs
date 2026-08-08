@@ -111,15 +111,27 @@ class Mount {
     public double Rpm;
     public bool   Exempt;        // slow mount: run no policy at all
     public readonly List<int> Parts = new List<int>();
+    public double AppliedRange = -1.0;   // last value actually pushed
+    public int    Descents;              // diagnostics
+    public int    _idx;                  // stable display index
 }
 
 readonly List<Mount> Mounts = new List<Mount>();
+// Learned per-block state, keyed by EntityId and preserved across rescans. Without this
+// a rescan builds fresh Mounts and WIPES the measured rate of fire, so a slow mount is
+// un-exempted and harmfully laddered for the next sample window every single rescan.
+class Learned { public double Rpm; public bool Exempt; public double BaseRange; }
+readonly Dictionary<long, Learned> Memory = new Dictionary<long, Learned>();
 readonly Dictionary<long, Mount> ById = new Dictionary<long, Mount>();
 readonly List<IMyTerminalBlock> _blocks = new List<IMyTerminalBlock>();
+readonly List<IMyTerminalBlock> _allBlocks = new List<IMyTerminalBlock>();
 readonly Dictionary<string, int> _map = new Dictionary<string, int>();
 
 double Now;
 double RescanDue;
+int    RangeWrites;
+int    WaveCount;
+int    TotalSpawns;
 int    ZeroRuns = WAVE_GAP_TICKS;
 int    Inbound;
 
@@ -188,7 +200,10 @@ int FleetInbound() {
 }
 
 // ---------------------------------------------------------------- discovery
+int _rejNotReady, _rejShortRange, _rejNoMap, _rejNotCore, _seenBlocks;
+
 void Discover() {
+    _rejNotReady = _rejShortRange = _rejNoMap = _rejNotCore = _seenBlocks = 0;
     foreach (var m in Mounts) {
         if (!Alive(m.Blk)) continue;          // never touch a closed block
         foreach (var pid in m.Parts)
@@ -197,20 +212,45 @@ void Discover() {
     Mounts.Clear();
     ById.Clear();
     _blocks.Clear();
-    GridTerminalSystem.GetBlocksOfType(_blocks,
-        b => Alive(b) && b.IsSameConstructAs(Me) && Wc.HasCoreWeapon(b));
+    // NOTE SDX2 PDCs are ConveyorSorter subtypes, so the scan must be over
+    // IMyTerminalBlock generally rather than any turret interface.
+    _allBlocks.Clear();
+    GridTerminalSystem.GetBlocksOfType(_allBlocks, b => Alive(b) && b.IsSameConstructAs(Me));
+    foreach (var b in _allBlocks) {
+        if (Wc.HasCoreWeapon(b)) _blocks.Add(b); else _rejNotCore++;
+    }
 
     int spread = 0;
     foreach (var b in _blocks) {
         _map.Clear();
-        if (!Wc.GetBlockWeaponMap(b, _map) || _map.Count == 0) continue;
+        _seenBlocks++;
+        if (!Wc.GetBlockWeaponMap(b, _map) || _map.Count == 0) { _rejNoMap++; continue; }
 
-        // SetBlockTrackingRange is per BLOCK, not per weapon part, so the block
-        // is the unit of control. Use the longest-reaching part for the base.
+        // ---- BASE RANGE. This needs care, and getting it wrong was a real bug.
+        //
+        // GetMaxWeaponRange does NOT return the hardpoint maximum. It returns
+        // Weapon.MaxTargetDistance, which WeaponState.cs:179 computes as
+        //     Math.Min(Set.Range, Math.Min(hardPointMax, ammoMax))
+        // i.e. it TRACKS THE CURRENT TRACKING-RANGE SETTING. Re-reading it after this
+        // script has narrowed a gate returns our own narrowed value, so each rescan
+        // ratcheted the base down: 3000 -> 840 -> 235 -> floor. Once it fell under the
+        // 500 m sanity filter the weapon was rejected outright and the script reported
+        // "no weapons found".
+        //
+        // Fix: PROBE for the true maximum. SetBlockTrackingRange clamps the request to
+        // min(hardPointMax, ammoMax) at ApiBackend.cs:1201, so asking for an absurd
+        // value and reading it back yields the real ceiling. Done once per block and
+        // remembered, so it also survives a player having lowered the slider by hand.
         double baseRange = 0.0;
-        foreach (var kv in _map) {
-            float r = Wc.GetMaxWeaponRange(b, kv.Value);
-            if (r > baseRange) baseRange = r;
+        Learned known;
+        if (Memory.TryGetValue(b.EntityId, out known) && known.BaseRange > 0.0) {
+            baseRange = known.BaseRange;
+        } else {
+            Wc.SetBlockTrackingRange(b, 1e9f);          // clamped by WC to the true max
+            foreach (var kv in _map) {
+                float r = Wc.GetMaxWeaponRange(b, kv.Value);
+                if (r > baseRange) baseRange = r;
+            }
         }
         // Anti-torpedo duty only. Also skip very slow guns: a mount that gets
         // ~5 rounds off per engagement loses more to range narrowing than the
@@ -223,6 +263,12 @@ void Discover() {
             Rung = OpeningFor(spread), OpeningRung = OpeningFor(spread),
             InFlight = 0, LastDescend = -99.0
         };
+        Learned mem;
+        if (!Memory.TryGetValue(b.EntityId, out mem)) { mem = new Learned(); Memory[b.EntityId] = mem; }
+        mem.BaseRange = baseRange;
+        mt.Rpm = mem.Rpm;
+        mt.Exempt = mem.Exempt;
+        mt._idx = Mounts.Count;
         Mounts.Add(mt);
         ById[b.EntityId] = mt;
 
@@ -266,7 +312,7 @@ void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
     // attributed to individual torpedoes — but a COUNT is all this needs, and
     // filtering on -1 keeps anti-grid fire from polluting it.
     if (targetId != -1) return;
-    if (start) { m.InFlight++; m.Spawns++; }
+    if (start) { m.InFlight++; m.Spawns++; TotalSpawns++; }
     else if (m.InFlight > 0) m.InFlight--;
 }
 
@@ -294,12 +340,25 @@ public void Main(string arg, UpdateType src) {
     // cheap insurance: in game, waves need not arrive as cleanly as in the sim,
     // and a battery stranded on low rungs between waves was worth 40.9 vs 4.3
     // cumulative leakers when it went wrong.
+    // IDLE HANDLING — this is load-bearing and its absence is a real defect.
+    // The ladder only has a job while torpedoes are inbound. Holding the spread while
+    // idle leaves some mounts gated to 0.28x of their range (a few hundred metres), so
+    // they will not engage distant fighters, grids or anything else. That looks exactly
+    // like "the PDCs are broken". While nothing is inbound every mount goes to FULL
+    // range; the opening spread is applied on the 0 -> N transition instead, which is
+    // also where the measured policy applies it.
     if (Inbound <= 0) {
         ZeroRuns++;
-    } else {
-        if (ZeroRuns >= WAVE_GAP_TICKS) Respread();
-        ZeroRuns = 0;
+        foreach (var m in Mounts) {
+            if (!Alive(m.Blk)) continue;
+            if (m.Rung != 0) { m.Rung = 0; m.LastDescend = -99.0; }
+            SetRange(m, m.BaseRange);
+        }
+        if (DEBUG_PANEL) Report();
+        return;                       // nothing else to do until a threat appears
     }
+    if (ZeroRuns >= WAVE_GAP_TICKS) { Respread(); WaveCount++; }  // new engagement
+    ZeroRuns = 0;
 
     // Drop dead mounts and rescan if any went away. Cheap: reference checks only.
     bool lost = false;
@@ -327,7 +386,12 @@ public void Main(string arg, UpdateType src) {
             m.Spawns = 0;
             m.SampleStart = Now;
             // only ever latch the exemption on evidence of actually shooting
-            if (m.Rpm > 0.0) m.Exempt = m.Rpm < MIN_RPM;
+            if (m.Rpm > 0.0) {
+                m.Exempt = m.Rpm < MIN_RPM;
+                Learned mem;
+                if (!Memory.TryGetValue(m.Id, out mem)) { mem = new Learned(); Memory[m.Id] = mem; }
+                mem.Rpm = m.Rpm; mem.Exempt = m.Exempt;
+            }
         }
         if (m.Exempt) {
             Wc.SetBlockTrackingRange(m.Blk, (float)m.BaseRange);
@@ -340,14 +404,24 @@ public void Main(string arg, UpdateType src) {
             && m.Rung < RUNG_COUNT - 1) {
             m.Rung++;
             m.LastDescend = Now;
+            m.Descents++;
         }
         double want = m.BaseRange * RUNGS[m.Rung];
         if (want < MIN_RANGE_M) want = MIN_RANGE_M;
-        Wc.SetBlockTrackingRange(m.Blk, (float)want);
+        SetRange(m, want);
         // Fire is NEVER toggled. Every withholding policy tested lost.
     }
 
     if (DEBUG_PANEL) Report();
+}
+
+// Single choke point for range changes, so the diagnostics can count them and we never
+// spam an unchanged value.
+void SetRange(Mount m, double r) {
+    if (Math.Abs(r - m.AppliedRange) < 0.5) return;
+    m.AppliedRange = r;
+    RangeWrites++;
+    Wc.SetBlockTrackingRange(m.Blk, (float)r);
 }
 
 void Respread() {
@@ -360,25 +434,73 @@ void Respread() {
 }
 
 void Report() {
-    int air = 0;
-    var rungs = new int[RUNG_COUNT];
-    foreach (var m in Mounts) { air += m.InFlight; rungs[m.Rung]++; }
     var sb = new StringBuilder();
-    sb.Append("FleetPD  blocks=").Append(Mounts.Count)
-      .Append("  hull ").Append(HullOrdinal + 1).Append('/').Append(HullCount)
-      .Append("  inbound(fleet)=").Append(Inbound).AppendLine();
-    sb.Append("own rounds airborne=").Append(air)
-      .Append("  (descend at ").Append(K_INFLIGHT).Append(")").AppendLine();
-    if (Mounts.Count == 0) { Echo("FleetPD: no usable weapons."); return; }
-    int ex = 0;
-    foreach (var m in Mounts) if (m.Exempt) ex++;
-    if (ex > 0) sb.Append("exempt (slow, <").Append((int)MIN_RPM).Append(" rpm)=")
-                  .Append(ex).AppendLine();
-    sb.Append("rungs far->near: ");
-    for (int i = 0; i < RUNG_COUNT; i++) {
-        sb.Append(rungs[i]);
-        if (i < RUNG_COUNT - 1) sb.Append('/');
+    sb.Append("== FleetPD ==  t=").Append(Now.ToString("0")).Append("s  hull ")
+      .Append(HullOrdinal + 1).Append('/').Append(HullCount).AppendLine();
+
+    // ---- discovery, with the reason for every rejection. Silent filters were what
+    // made "no weapons found" impossible to diagnose in the first place.
+    sb.Append("scan: ").Append(_seenBlocks).Append(" core blocks -> ")
+      .Append(Mounts.Count).Append(" usable").AppendLine();
+    if (_rejNotCore + _rejNoMap + _rejNotReady + _rejShortRange > 0) {
+        sb.Append("  rejected: ");
+        if (_rejNotCore > 0) sb.Append("notCoreWeapon=").Append(_rejNotCore).Append(' ');
+        if (_rejNoMap > 0) sb.Append("noWeaponMap=").Append(_rejNoMap).Append(' ');
+        if (_rejNotReady > 0) sb.Append("wcNotReady(retry)=").Append(_rejNotReady).Append(' ');
+        if (_rejShortRange > 0) sb.Append("range<500=").Append(_rejShortRange);
+        sb.AppendLine();
     }
+    if (Mounts.Count == 0) {
+        sb.AppendLine("NO USABLE WEAPONS.");
+        sb.AppendLine("  wcNotReady is normal for a few seconds after load/recompile.");
+        sb.AppendLine("  notCoreWeapon on everything => WeaponCore API not talking.");
+        sb.Append("  run with argument 'rescan' to force a re-scan.");
+        Echo(sb.ToString());
+        return;
+    }
+
+    // ---- engagement state
+    int air = 0, ex = 0, desc = 0;
+    double minR = double.MaxValue, maxR = 0.0;
+    var rungs = new int[RUNG_COUNT];
+    foreach (var m in Mounts) {
+        air += m.InFlight;
+        desc += m.Descents;
+        if (m.Exempt) ex++;
+        rungs[m.Rung]++;
+        if (m.AppliedRange < minR) minR = m.AppliedRange;
+        if (m.AppliedRange > maxR) maxR = m.AppliedRange;
+    }
+    sb.Append(Inbound > 0 ? "ENGAGED" : "idle   ")
+      .Append("  inbound(fleet)=").Append(Inbound)
+      .Append("  waves=").Append(WaveCount)
+      .Append("  quietRuns=").Append(ZeroRuns).AppendLine();
+    sb.Append("own rounds airborne=").Append(air)
+      .Append("  (descend at >=").Append(K_INFLIGHT).Append(")")
+      .Append("  spawnsSeen=").Append(TotalSpawns).AppendLine();
+    sb.Append("rungs far->near: ");
+    for (int i = 0; i < RUNG_COUNT; i++) { sb.Append(rungs[i]); if (i < RUNG_COUNT - 1) sb.Append('/'); }
+    sb.Append("   descents=").Append(desc).Append("  rangeWrites=").Append(RangeWrites).AppendLine();
+    sb.Append("range applied ").Append(((int)minR).ToString()).Append("..")
+      .Append(((int)maxR).ToString()).Append(" m");
+    if (ex > 0) sb.Append("   exempt(<").Append((int)MIN_RPM).Append("rpm)=").Append(ex);
+    sb.AppendLine();
+
+    // ---- per-mount detail. Capped so a big battery cannot blow the 8k Echo limit.
+    sb.AppendLine("  #  rung   range   air   rpm  st");
+    int shown = 0;
+    foreach (var m in Mounts) {
+        if (shown++ >= 12) { sb.Append("  ... +").Append(Mounts.Count - 12).Append(" more"); break; }
+        sb.Append("  ").Append(m._idx.ToString().PadLeft(2))
+          .Append(m.Rung.ToString().PadLeft(6))
+          .Append(((int)m.AppliedRange).ToString().PadLeft(8))
+          .Append(m.InFlight.ToString().PadLeft(6))
+          .Append(((int)m.Rpm).ToString().PadLeft(6))
+          .Append("  ").Append(m.Exempt ? "EX" : (Alive(m.Blk) ? "ok" : "DEAD"))
+          .AppendLine();
+    }
+    sb.Append("peers=").Append(Peers.Count).Append("  runtime=")
+      .Append(Runtime.LastRunTimeMs.ToString("0.00")).Append("ms");
     Echo(sb.ToString());
 }
 
