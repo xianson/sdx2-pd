@@ -20,8 +20,8 @@
 //    vanilla  passive control: full range, no ladder, stats still recorded to their own
 //             totals. 'active' resumes, 'toggle' flips. The in-game control for the
 //             simulator's `no PB` baseline.
-//    rescan   force a weapon re-scan.
-//    igc      force an IGC poll and print the net table now.
+//             Toggling it on also forces a weapon rescan and an immediate IGC poll,
+//             so it is the only diagnostic argument there is.
 //
 //  MEASURED RESULT (3 hulls, 24 torpedoes/wave, 20 waves, 6 s gaps, 12 seeds):
 //      no script .................. dies wave ~2.6,  71.5 cumulative leakers
@@ -85,7 +85,7 @@ const double RESCAN_S       = 30.0;   // pick up built/repaired/destroyed mounts
 // Diagnostics are OPT-IN: run the PB with the argument 'debug' to toggle them.
 // Default is the optimal net with no panel, no CustomData writes, and no block
 // re-count, so the normal path costs only what fighting requires.
-const int    LOG_WAVES      = 24;     // waves retained in the log ring
+const double LOG_EVERY_S    = 10.0;   // CustomData refresh interval
 const double DAMAGE_POLL_S  = 1.0;    // how often to re-count blocks (damage sensor)
 const double LEAK_RANGE_M   = 250.0;  // target seen closer than this => scored a leak
 const double BAND_STALE_S   = 1.5;    // ignore a band report older than this
@@ -168,23 +168,15 @@ int    TotalSpawns;
 // Endings that coincide with damage are attributed to leaks; the rest are counted kills.
 // A leaker that destroys nothing is undercounted; splash that kills a block without a
 // full arrival is overcounted. A good signal, not ground truth.
-class Wave {
-    public int    N, PeakIn, Ended, Kills, Leaks, BlocksLost, Fired, Descents;
-    public double Start, Dur, PeakHeat;
-    public bool   Vanilla;
-    public int    LeakByRange, LeakByDamage;
-    public int    Hits, Flyouts;
-    public double Orphan, FlightSum;
-    public double ClosestM = -1.0;
-}
-Wave Cur;
-readonly List<Wave> Log = new List<Wave>();
 int    PrevInbound;
 int    PendingDrops;
 int    BlockCount = -1;
 double DamagePollDue;
 int    TotKills, TotLeaks, TotBlocks, TotFired;
-int    _waveFiredAt, _waveDescAt;
+int    LeakRng, LeakDmg, PeakInbound;
+double ClosestEver = -1.0;
+double LastDropAt;
+double LogDue;
 // Round-level efficiency. Keyed by projectile id; entries are removed on the end
 // callback, so the dictionary is bounded by rounds currently in the air.
 struct Shot { public Vector3D P; public double T; public double Reach; }
@@ -399,7 +391,7 @@ void OnWeaponEvent(int state, bool active) {
     double frac = state == 17 ? 1.00 : state == 18 ? 0.75 : state == 19 ? 0.50 : 0.25;
     for (int i = 0; i < Mounts.Count; i++) {
         var m = Mounts[i];
-        if (m.InFlight <= 0 && m.Band < 0) continue;   // not engaging anything
+        if (!Alive(m.Blk)) continue;
         double r = m.AppliedRange > 0 ? m.AppliedRange * frac : 0.0;  // bands are of the CURRENT gate
         if (r <= 0) continue;
         m.Band = state;
@@ -423,11 +415,8 @@ void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
                   Vector3D pos, bool start) {
     Mount m;
     if (!ById.TryGetValue(coreEnt, out m)) return;
-    // targetId == -1 is the sentinel for a PROJECTILE target (Target.SetTargetId).
-    // Every anti-torpedo round reports the same -1, so rounds cannot be
-    // attributed to individual torpedoes — but a COUNT is all this needs, and
-    // filtering on -1 keeps anti-grid fire from polluting it.
-    if (targetId != -1) return;
+    // NO targetId FILTER. It used to skip anything whose Target.TargetId was not the
+    // -1 projectile sentinel, which rejected every round and silently zeroed the stats.
     if (start) {
         m.InFlight++;
         m.Spawns++;
@@ -449,14 +438,11 @@ void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
     double flew = Vector3D.Distance(rec.P, pos);
     double dt = Now - rec.T;
     ShotFlightSum += dt;
-    if (Cur != null) Cur.FlightSum += dt;
     // Short flight => it ran into its target. Full reach => it hit nothing.
     if (rec.Reach > 0 && flew < rec.Reach * HIT_FRAC) {
         ShotHits++;
-        if (Cur != null) Cur.Hits++;
     } else {
         ShotFlyouts++;
-        if (Cur != null) Cur.Flyouts++;
     }
 }
 
@@ -472,7 +458,6 @@ public void Main(string arg, UpdateType src) {
         Vanilla = arg == "toggle" ? !Vanilla : arg == "vanilla";
         SaveFlags();
         // Close any wave in progress so its stats are not split across two modes.
-        if (Cur != null) CloseWave();
         foreach (var m in Mounts) {
             if (!Alive(m.Blk)) continue;
             m.Rung = 0;
@@ -482,16 +467,16 @@ public void Main(string arg, UpdateType src) {
         return;
     }
     if (arg == "debug") {
+        // One diagnostic argument. Toggling it on also forces a weapon rescan and an
+        // immediate IGC poll and write, so there is nothing else to remember.
         Debug = !Debug;
         SaveFlags();
-        if (!Debug) Me.CustomData = "";
-        Echo("debug -> " + (Debug ? "ON (panel + CustomData wave log)" : "OFF"));
-        return;
-    }
-    if (arg == "rescan") { Discover(); }
-    if (arg == "igc") {          // force a fresh poll and print, for spot checks
+        if (!Debug) { Me.CustomData = ""; Echo("debug -> OFF"); return; }
+        Discover();
         Gossip();
         Inbound = FleetInbound();
+        LogDue = 0.0;
+        WriteLog();
         Report();
         return;
     }
@@ -525,6 +510,7 @@ public void Main(string arg, UpdateType src) {
     if (Inbound < PrevInbound) {
         int died = PrevInbound - Inbound;
         PendingDrops += died;
+        LastDropAt = Now;
         // Orphaned-round estimate: of everything airborne right now, the share committed
         // to the torpedoes that just died is about died / (live before they died).
         if (Debug && PrevInbound > 0) {
@@ -532,37 +518,36 @@ public void Main(string arg, UpdateType src) {
             for (int i = 0; i < Mounts.Count; i++) air += Mounts[i].InFlight;
             double orph = air * ((double)died / PrevInbound);
             OrphanEst += orph;
-            if (Cur != null) Cur.Orphan += orph;
         }
     }
     PrevInbound = Inbound;
 
-    if (Cur != null) {
-        if (Inbound > Cur.PeakIn) Cur.PeakIn = Inbound;
+    if (Inbound > PeakInbound) PeakInbound = Inbound;
 
-        // RANGE-INFERRED LEAKS. Works with damage disabled, which the block sensor
-        // cannot. If something was seen inside LEAK_RANGE_M in the last moment, endings
-        // recorded now are scored leaks.
-        double near = ClosestSeen();
-        if (PendingDrops > 0 && near >= 0.0 && near <= LEAK_RANGE_M) {
-            Cur.Leaks += PendingDrops;
-            Cur.LeakByRange += PendingDrops;
-            PendingDrops = 0;
+    // RANGE-INFERRED LEAKS. Works with damage disabled, which the block sensor cannot.
+    // If a mount reported its target inside LEAK_RANGE_M in the last moment, endings
+    // recorded now are scored leaks rather than kills.
+    double near = ClosestSeen();
+    if (near >= 0.0 && (ClosestEver < 0.0 || near < ClosestEver)) ClosestEver = near;
+    if (PendingDrops > 0 && near >= 0.0 && near <= LEAK_RANGE_M) {
+        if (Vanilla) VLeaks += PendingDrops; else TotLeaks += PendingDrops;
+        LeakRng += PendingDrops;
+        PendingDrops = 0;
+    }
+    if (lostNow > 0) {
+        TotBlocks += lostNow;
+        int leak = PendingDrops < lostNow ? PendingDrops : lostNow;
+        if (leak > 0) {
+            if (Vanilla) VLeaks += leak; else TotLeaks += leak;
+            LeakDmg += leak;
+            PendingDrops -= leak;
         }
-        if (near >= 0.0 && (Cur.ClosestM < 0.0 || near < Cur.ClosestM)) Cur.ClosestM = near;
-
-        if (lostNow > 0) {
-            Cur.BlocksLost += lostNow;
-            int leak = PendingDrops < lostNow ? PendingDrops : lostNow;
-            if (leak > 0) { Cur.Leaks += leak; Cur.LeakByDamage += leak; PendingDrops -= leak; }
-        }
-        double hot = 0.0;
-        foreach (var m in Mounts) {
-            if (!Alive(m.Blk)) continue;
-            float h = Wc.GetWeaponHeatLevel(m.Blk, m.Parts.Count > 0 ? m.Parts[0] : 0);
-            if (h > hot) hot = h;
-        }
-        if (hot > Cur.PeakHeat) Cur.PeakHeat = hot;
+    }
+    // Endings with nothing close and no damage are kills. Resolved on a short delay so a
+    // band report has a chance to arrive first.
+    if (PendingDrops > 0 && Now - LastDropAt > 0.75) {
+        if (Vanilla) VKills += PendingDrops; else TotKills += PendingDrops;
+        PendingDrops = 0;
     }
 
     // IDLE HANDLING — this is load-bearing and its absence is a real defect.
@@ -579,21 +564,13 @@ public void Main(string arg, UpdateType src) {
             if (m.Rung != 0) { m.Rung = 0; m.LastDescend = -99.0; }
             SetRange(m, m.BaseRange);
         }
-        if (Cur != null && ZeroRuns >= WAVE_GAP_TICKS) CloseWave();
-        if (Debug) Report(); else Status();
+        if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+    if (Debug) Report(); else Status();
         return;                       // nothing else to do until a threat appears
     }
-    if (ZeroRuns >= WAVE_GAP_TICKS) {                       // new engagement begins
+    if (ZeroRuns >= WAVE_GAP_TICKS) {   // a fresh engagement: reset the opening spread
         Respread();
         WaveCount++;
-        Cur = new Wave();
-        Cur.N = WaveCount;
-        Cur.Start = Now;
-        Cur.PeakIn = Inbound;
-        Cur.Vanilla = Vanilla;
-        _waveFiredAt = TotalSpawns;
-        _waveDescAt = TotalDescents();
-        PendingDrops = 0;
     }
     ZeroRuns = 0;
 
@@ -613,7 +590,8 @@ public void Main(string arg, UpdateType src) {
             if (m.Rung != 0) m.Rung = 0;
             SetRange(m, m.BaseRange);
         }
-        if (Debug) Report(); else Status();
+        if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+    if (Debug) Report(); else Status();
         return;
     }
 
@@ -658,6 +636,7 @@ public void Main(string arg, UpdateType src) {
         // Fire is NEVER toggled. Every withholding policy tested lost.
     }
 
+    if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
     if (Debug) Report(); else Status();
 }
 
@@ -678,85 +657,52 @@ void SetRange(Mount m, double r) {
     Wc.SetBlockTrackingRange(m.Blk, (float)r);
 }
 
-int TotalDescents() {
-    int d = 0;
-    foreach (var m in Mounts) d += m.Descents;
-    return d;
-}
-
-// Whatever is still pending when the wave closes had no damage correlated with it, so it
-// is counted as a kill.
-void CloseWave() {
-    Cur.Dur = Now - Cur.Start;
-    Cur.Fired = TotalSpawns - _waveFiredAt;
-    Cur.Descents = TotalDescents() - _waveDescAt;
-    Cur.Kills += PendingDrops;
-    PendingDrops = 0;
-    Cur.Ended = Cur.Kills + Cur.Leaks;
-    if (Cur.Vanilla) {
-        VKills += Cur.Kills; VLeaks += Cur.Leaks;
-        VBlocks += Cur.BlocksLost; VFired += Cur.Fired; VWaves++;
-    } else {
-        TotKills += Cur.Kills; TotLeaks += Cur.Leaks;
-        TotBlocks += Cur.BlocksLost; TotFired += Cur.Fired;
-    }
-    Log.Add(Cur);
-    while (Log.Count > LOG_WAVES) Log.RemoveAt(0);
-    Cur = null;
-    if (Debug) WriteLog();
-}
-
 void WriteLog() {
     var sb = new StringBuilder();
-    sb.Append("FleetPD log   grid=").Append(Me.CubeGrid.EntityId % 1000000L)
+    sb.Append("FleetPD   grid=").Append(Me.CubeGrid.EntityId % 1000000L)
       .Append("   hull ").Append(HullOrdinal + 1).Append('/').Append(HullCount)
-      .Append("   mounts=").Append(Mounts.Count).AppendLine();
-    sb.AppendLine("kill~ and leak~ are ESTIMATES. Nothing reports being hit, so the script");
-    sb.AppendLine("A fall in inbound count is scored a LEAK if any mount reported its target");
-    sb.AppendLine("inside " + LEAK_RANGE_M.ToString("0") + " m just beforehand (WeaponCore TargetRanged bands),");
-    sb.AppendLine("or if grid blocks were lost at the same moment. Otherwise it is a kill.");
-    sb.AppendLine("byRng works with damage disabled; byDmg does not.");
-    sb.AppendLine("Only waves fought with debug ON are recorded.");
+      .Append("   mounts=").Append(Mounts.Count)
+      .Append("   uptime=").Append(Now.ToString("0")).Append('s')
+      .Append(Vanilla ? "   [VANILLA]" : "   [ACTIVE]").AppendLine();
+    sb.Append("inbound now=").Append(Inbound)
+      .Append("   peak=").Append(PeakInbound)
+      .Append("   engagements=").Append(WaveCount).AppendLine();
     sb.AppendLine();
-    sb.AppendLine("wave  mode    dur  peakIn  kill~  leak~  closest  fired   hit%  flyout%  orphan~  tof  heat");
-    for (int i = 0; i < Log.Count; i++) {
-        var w = Log[i];
-        sb.Append(w.N.ToString().PadLeft(4))
-          .Append(w.Vanilla ? "  VAN" : "  act")
-          .Append((w.Dur.ToString("0.0") + "s").PadLeft(7))
-          .Append(w.PeakIn.ToString().PadLeft(8))
-          .Append(w.Ended.ToString().PadLeft(7))
-          .Append(w.Kills.ToString().PadLeft(7))
-          .Append(w.Leaks.ToString().PadLeft(7))
-          .Append((w.ClosestM >= 0 ? ((int)w.ClosestM).ToString() + "m" : "-").PadLeft(9))
-          .Append(w.Fired.ToString().PadLeft(7))
-          .Append(Pct(w.Hits, w.Hits + w.Flyouts).PadLeft(7))
-          .Append(Pct(w.Flyouts, w.Hits + w.Flyouts).PadLeft(9))
-          .Append(((int)w.Orphan).ToString().PadLeft(9))
-          .Append((w.Hits + w.Flyouts > 0
-                   ? (w.FlightSum / (w.Hits + w.Flyouts)).ToString("0.00") + "s" : "-").PadLeft(6))
-          .Append(((int)(w.PeakHeat * 100)).ToString().PadLeft(5)).Append('%')
-          .AppendLine();
-    }
-    sb.AppendLine();
-    sb.AppendLine("mode      waves  kill~  leak~  blocks   fired  r/kill~  intercept");
-    AppendTotals(sb, "ACTIVE", WaveCount - VWaves, TotKills, TotLeaks, TotBlocks, TotFired);
-    AppendTotals(sb, "VANILLA", VWaves, VKills, VLeaks, VBlocks, VFired);
-    sb.AppendLine();
-    sb.AppendLine();
+
     int res = ShotHits + ShotFlyouts;
-    sb.Append("rounds resolved=").Append(res)
-      .Append("  hit=").Append(Pct(ShotHits, res))
-      .Append("  flyout=").Append(Pct(ShotFlyouts, res))
-      .Append("  orphan~=").Append(((int)OrphanEst).ToString());
-    if (res > 0) sb.Append("  meanToF=").Append((ShotFlightSum / res).ToString("0.00")).Append('s');
+    sb.AppendLine("ROUNDS");
+    sb.Append("  fired      ").Append(TotalSpawns).AppendLine();
+    sb.Append("  resolved   ").Append(res).AppendLine();
+    sb.Append("  hit        ").Append(ShotHits).Append("   ").Append(Pct(ShotHits, res)).AppendLine();
+    sb.Append("  flyout     ").Append(ShotFlyouts).Append("   ").Append(Pct(ShotFlyouts, res)).AppendLine();
+    sb.Append("  orphan~    ").Append((int)OrphanEst)
+      .Append("   (of the flyouts: target died mid-flight)").AppendLine();
+    if (res > 0)
+        sb.Append("  meanToF    ").Append((ShotFlightSum / res).ToString("0.00")).Append('s').AppendLine();
     sb.AppendLine();
-    sb.AppendLine("hit = round ended short of its reach, so it ran into its target.");
-    sb.AppendLine("flyout = ran out its full reach and hit nothing. orphan~ estimates how");
-    sb.AppendLine("many of those were committed to a torpedo that died mid-flight.");
+
+    sb.AppendLine("INTERCEPTS   (estimated - nothing reports being hit)");
+    sb.Append("  kill~      ").Append(TotKills + VKills).AppendLine();
+    sb.Append("  leak~      ").Append(TotLeaks + VLeaks)
+      .Append("   byRange=").Append(LeakRng).Append(" byDamage=").Append(LeakDmg).AppendLine();
+    int tot = TotKills + VKills + TotLeaks + VLeaks;
+    if (tot > 0)
+        sb.Append("  intercept  ")
+          .Append((100.0 * (TotKills + VKills) / tot).ToString("0.0")).Append('%').AppendLine();
+    if (ClosestEver >= 0)
+        sb.Append("  closest    ").Append((int)ClosestEver).Append('m').AppendLine();
+    sb.Append("  blocksLost ").Append(TotBlocks).AppendLine();
     sb.AppendLine();
-    sb.AppendLine("Run the PB with argument \'vanilla\' to collect the passive control, then");
-    sb.AppendLine("'active' to resume. Compare the two intercept rates above.");
+
+    sb.AppendLine("mode      kill~  leak~   fired  r/kill~  intercept");
+    AppendTotals(sb, "ACTIVE", TotKills, TotLeaks, TotFired);
+    AppendTotals(sb, "VANILLA", VKills, VLeaks, VFired);
+    sb.AppendLine();
+    sb.AppendLine("A fall in the inbound count is scored a LEAK if a mount reported its");
+    sb.AppendLine("target inside " + LEAK_RANGE_M.ToString("0") + "m just beforehand (WeaponCore TargetRanged");
+    sb.AppendLine("bands), or if blocks were lost at that moment; otherwise a kill.");
+    sb.AppendLine("hit = round ended short of its reach. flyout = ran its full reach.");
+    sb.AppendLine("'vanilla' collects a passive control; 'active' resumes.");
     Me.CustomData = sb.ToString();
 }
 
@@ -764,12 +710,10 @@ string Pct(int a, int b) {
     return b > 0 ? (100.0 * a / b).ToString("0") + "%" : "-";
 }
 
-void AppendTotals(StringBuilder sb, string label, int waves, int k, int l, int b, int f) {
+void AppendTotals(StringBuilder sb, string label, int k, int l, int f) {
     sb.Append(label.PadRight(9))
-      .Append(waves.ToString().PadLeft(5))
       .Append(k.ToString().PadLeft(7))
       .Append(l.ToString().PadLeft(7))
-      .Append(b.ToString().PadLeft(8))
       .Append(f.ToString().PadLeft(8))
       .Append((k > 0 ? ((double)f / k).ToString("0.0") : "-").PadLeft(9))
       .Append((k + l > 0 ? (100.0 * k / (k + l)).ToString("0.0") + "%" : "-").PadLeft(11))
@@ -894,7 +838,7 @@ void Report() {
         sb.Append("  WARNING: no peer traffic for ")
           .Append((Now - LastPeerHeard).ToString("0")).Append("s (net dropping?)").AppendLine();
     }
-    if (WaveCount > 0 || Cur != null) {
+    if (WaveCount > 0 || Inbound > 0) {
         sb.Append("-- stats --  kill~=").Append(TotKills).Append(" leak~=").Append(TotLeaks);
         if (TotKills + TotLeaks > 0)
             sb.Append(" intercept=")
@@ -905,7 +849,6 @@ void Report() {
             sb.Append("  hit=").Append(Pct(ShotHits, res2))
               .Append(" flyout=").Append(Pct(ShotFlyouts, res2))
               .Append(" orphan~=").Append((int)OrphanEst);
-        if (Cur != null) sb.Append("  [wave ").Append(Cur.N).Append(" live]");
         sb.AppendLine();
     }
     sb.Append("peersEver=").Append(PeersEverSeen)
