@@ -1,0 +1,3263 @@
+{
+ "Torpedo160mmBelter": {
+  "ammo_round": "220mm Belter Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo160mmBelter.cs",
+  "guidance": "Smart",
+  "health": 4.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2504,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 120.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.4999999999999998,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 6.0,
+   "offset_ratio": 0.2,
+   "offset_time": 30,
+   "offset_min_range": 2500.0,
+   "max_chase_time": 834,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      60.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 1.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 4.333333333333333,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 260.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Origin",
+    "elevation": "Origin",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": true,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 1000.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 1000.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      60.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.023,
+    "speed_cap_multi": 5.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.023,
+    "accel_mps2": 358.8,
+    "speed_cap_mps": 1300.0,
+    "forward": "ForwardElevationDirection",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 1300.0,
+  "boost_ticks": 60.0,
+  "aoe": 60000.0,
+  "aoe_r": 6.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2504,
+  "steering": 120.0,
+  "inaccuracy": 6.0,
+  "offset_ratio": 0.2,
+  "offset_time": 30,
+  "offset_min": 2500.0,
+  "max_chase": 834
+ },
+ "Torpedo160mmBlastFrag": {
+  "ammo_round": "Blast Frag Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo160mmBlastFrag.cs",
+  "guidance": "Smart",
+  "health": 5.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2400,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 140.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.7660444431189779,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 2.0,
+   "offset_ratio": 0.32,
+   "offset_time": 30,
+   "offset_min_range": 2500.0,
+   "max_chase_time": 800,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      60.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 18.5,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 80.16666666666666,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 4810.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Target",
+    "elevation": "Nothing",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": false,
+    "adjust_position_c": false,
+    "lead_rotate_elevate_b": true,
+    "lead_rotate_elevate_c": true,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": false,
+    "tracking_distance": 0.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      60.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      2500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.023,
+    "speed_cap_multi": 4.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.023,
+    "accel_mps2": 358.8,
+    "speed_cap_mps": 1040.0,
+    "forward": "ForwardElevationDirection",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 2,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      2500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      2000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpStoredStartPosition",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 300.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 3,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToPrevious",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      2000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      1500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": -300.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 4,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      1500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      1000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 250.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 5,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      1000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": -150.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 6,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      200.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Target",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 100.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 150.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 7,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      200.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardTargetVelocity",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": true,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 1196.0,
+  "boost_ticks": 60.0,
+  "aoe": 0.0,
+  "aoe_r": 0.0,
+  "eol_damage": 0.0,
+  "eol_radius": 0.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2400,
+  "steering": 140.0,
+  "inaccuracy": 2.0,
+  "offset_ratio": 0.32,
+  "offset_time": 30,
+  "offset_min": 2500.0,
+  "max_chase": 800
+ },
+ "Torpedo160mmPlasma": {
+  "ammo_round": "160mm Plasma Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo160mmPlasma.cs",
+  "guidance": "Smart",
+  "health": 4.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2304,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 140.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.7660444431189779,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 2.0,
+   "offset_ratio": 0.7,
+   "offset_time": 30,
+   "offset_min_range": 2500.0,
+   "max_chase_time": 768,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      60.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 18.5,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 80.16666666666666,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 4810.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Target",
+    "elevation": "Nothing",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": false,
+    "adjust_position_c": false,
+    "lead_rotate_elevate_b": true,
+    "lead_rotate_elevate_c": true,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": false,
+    "tracking_distance": 0.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      60.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.023,
+    "speed_cap_multi": 5.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.023,
+    "accel_mps2": 358.8,
+    "speed_cap_mps": 1300.0,
+    "forward": "ForwardElevationDirection",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 1300.0,
+  "boost_ticks": 60.0,
+  "aoe": 50000.0,
+  "aoe_r": 6.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2304,
+  "steering": 140.0,
+  "inaccuracy": 2.0,
+  "offset_ratio": 0.7,
+  "offset_time": 30,
+  "offset_min": 2500.0,
+  "max_chase": 768
+ },
+ "Torpedo160mmPlasmaAtt": {
+  "ammo_round": "160mm Plasma AT Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo160mmPlasmaAtt.cs",
+  "guidance": "Smart",
+  "health": 4.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2304,
+  "max_traj": 14000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 140.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.7660444431189779,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 1.0,
+   "offset_ratio": 0.0,
+   "offset_time": 180,
+   "offset_min_range": 2500.0,
+   "max_chase_time": 768,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      60.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 1.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 4.333333333333333,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 260.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Origin",
+    "elevation": "Origin",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": true,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 1000.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 1000.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      60.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Ignore",
+      1500.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      1500.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 1.0,
+    "speed_cap_multi": 5.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 1.0,
+    "accel_mps2": 15600.0,
+    "speed_cap_mps": 1300.0,
+    "forward": "ForwardElevationDirection",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": true
+   }
+  ],
+  "terminal_speed": 260.0,
+  "boost_ticks": 60.0,
+  "aoe": 10000.0,
+  "aoe_r": 20.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2304,
+  "steering": 140.0,
+  "inaccuracy": 1.0,
+  "offset_ratio": 0.0,
+  "offset_time": 180,
+  "offset_min": 2500.0,
+  "max_chase": 768
+ },
+ "Torpedo190mmImprovised": {
+  "ammo_round": "190mm Improvised Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo190mmImprovised.cs",
+  "guidance": "Smart",
+  "health": 4.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2504,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 120.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.4999999999999998,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 6.0,
+   "offset_ratio": 0.2,
+   "offset_time": 30,
+   "offset_min_range": 2500.0,
+   "max_chase_time": 834,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      60.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 1.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 4.333333333333333,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 260.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Origin",
+    "elevation": "Origin",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": true,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 1000.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 1000.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      60.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.023,
+    "speed_cap_multi": 3.7,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.023,
+    "accel_mps2": 358.8,
+    "speed_cap_mps": 962.0,
+    "forward": "ForwardElevationDirection",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 962.0,
+  "boost_ticks": 60.0,
+  "aoe": 60000.0,
+  "aoe_r": 5.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2504,
+  "steering": 120.0,
+  "inaccuracy": 6.0,
+  "offset_ratio": 0.2,
+  "offset_time": 30,
+  "offset_min": 2500.0,
+  "max_chase": 834
+ },
+ "Torpedo220mmBelter": {
+  "ammo_round": "220mm Belter Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo220mmBelter.cs",
+  "guidance": "Smart",
+  "health": 4.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2504,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 120.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.4999999999999998,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 6.0,
+   "offset_ratio": 0.2,
+   "offset_time": 30,
+   "offset_min_range": 2500.0,
+   "max_chase_time": 834,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      120.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 1.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 4.333333333333333,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 260.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Origin",
+    "elevation": "Origin",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": true,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 1000.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 1000.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      120.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.017,
+    "speed_cap_multi": 4.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.017,
+    "accel_mps2": 265.20000000000005,
+    "speed_cap_mps": 1040.0,
+    "forward": "ForwardElevationDirection",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 1040.0,
+  "boost_ticks": 120.0,
+  "aoe": 60000.0,
+  "aoe_r": 10.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2504,
+  "steering": 120.0,
+  "inaccuracy": 6.0,
+  "offset_ratio": 0.2,
+  "offset_time": 30,
+  "offset_min": 2500.0,
+  "max_chase": 834
+ },
+ "Torpedo220mmHekp": {
+  "ammo_round": "HEKP Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo220mmHekp.cs",
+  "guidance": "Smart",
+  "health": 5.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2400,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 140.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.7660444431189779,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 2.0,
+   "offset_ratio": 0.32,
+   "offset_time": 30,
+   "offset_min_range": 2500.0,
+   "max_chase_time": 800,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      120.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 1.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 4.333333333333333,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 260.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Target",
+    "elevation": "Nothing",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": false,
+    "adjust_position_c": false,
+    "lead_rotate_elevate_b": true,
+    "lead_rotate_elevate_c": true,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": false,
+    "tracking_distance": 0.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      120.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      2500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.017,
+    "speed_cap_multi": 4.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.017,
+    "accel_mps2": 265.20000000000005,
+    "speed_cap_mps": 1040.0,
+    "forward": "ForwardElevationDirection",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 2,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      2500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      2000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpStoredStartPosition",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 300.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 3,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToPrevious",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      2000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      1500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": -300.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 4,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      1500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      1000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 250.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 5,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      1000.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": -150.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 10.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 6,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      500.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      200.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionC",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Target",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 100.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 150.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 7,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "DistanceFromPositionC",
+      200.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.17,
+    "speed_cap_multi": 4.6,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.17,
+    "accel_mps2": 2652.0,
+    "speed_cap_mps": 1196.0,
+    "forward": "ForwardTargetVelocity",
+    "up": "UpRelativeToBlock",
+    "position_b": "Surface",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": true,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 0.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 1196.0,
+  "boost_ticks": 120.0,
+  "aoe": 0.0,
+  "aoe_r": 0.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2400,
+  "steering": 140.0,
+  "inaccuracy": 2.0,
+  "offset_ratio": 0.32,
+  "offset_time": 30,
+  "offset_min": 2500.0,
+  "max_chase": 800
+ },
+ "Plasma220mmTorp": {
+  "ammo_round": "220mm Plasma Torpedo",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedo220mmPlasma.cs",
+  "guidance": "Smart",
+  "health": 4.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2304,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 140.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.7660444431189779,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 1.0,
+   "offset_ratio": 0.7,
+   "offset_time": 180,
+   "offset_min_range": 2000.0,
+   "max_chase_time": 768,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      120.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 1.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 4.333333333333333,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 260.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Origin",
+    "elevation": "Origin",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": true,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 1000.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 1000.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      120.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "DistanceFromTarget",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.017,
+    "speed_cap_multi": 4.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.017,
+    "accel_mps2": 265.20000000000005,
+    "speed_cap_mps": 1040.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 1040.0,
+  "boost_ticks": 120.0,
+  "aoe": 75000.0,
+  "aoe_r": 11.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2304,
+  "steering": 140.0,
+  "inaccuracy": 1.0,
+  "offset_ratio": 0.7,
+  "offset_time": 180,
+  "offset_min": 2000.0,
+  "max_chase": 768
+ },
+ "TrailerTorp": {
+  "ammo_round": "Trailer Torp",
+  "source": "TorpedoAmmo\\sdx_ammo_torpedoTrailerTorp.cs",
+  "guidance": "Smart",
+  "health": 4.0,
+  "hhm": 11.0,
+  "collision_size": 2.2,
+  "desired": 260.0,
+  "accel_per_sec": 15600.0,
+  "delta_velocity_per_tick": 260.0,
+  "ammo_skip_accel": false,
+  "life_ticks": 2304,
+  "max_traj": 24000.0,
+  "total_acceleration": null,
+  "smarts": {
+   "steering_limit_deg": 140.0,
+   "advanced_smart_steering": true,
+   "steering_cos": -0.7660444431189779,
+   "aggressiveness": 3.0,
+   "nav_acceleration": 1.5,
+   "zero_effort_nav": false,
+   "min_turn_speed": 0.0,
+   "max_lateral_thrust": 0.0001,
+   "inaccuracy": 1.0,
+   "offset_ratio": 0.7,
+   "offset_time": 180,
+   "offset_min_range": 2000.0,
+   "max_chase_time": 768,
+   "target_loss_time": 30,
+   "no_steering": false
+  },
+  "stages": [
+   {
+    "index": 0,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Spawn",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "Lifetime",
+      120.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "StorePositionB",
+    "end_event": "DoNothing",
+    "accel_multi": 0.0,
+    "speed_cap_multi": 1.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 4.333333333333333,
+    "accel_mps2": 0.0,
+    "speed_cap_mps": 260.0,
+    "forward": "ForwardStoredStartLocalPosition",
+    "up": "UpStoredStartLocalPosition",
+    "position_b": "Origin",
+    "position_c": "Origin",
+    "elevation": "Origin",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": true,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 1000.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 1000.0,
+    "angle_offset": 1.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   },
+   {
+    "index": 1,
+    "operators": "StartEnd_And",
+    "start_and": true,
+    "end_and": true,
+    "can_expire_once_started": false,
+    "force_restart": false,
+    "restart_condition": "MoveToNext",
+    "restart_list": [
+     {
+      "approach_id": -1,
+      "max_runs": 0
+     }
+    ],
+    "start_conditions": [
+     [
+      "Lifetime",
+      0.0,
+      "ticks"
+     ],
+     [
+      "Ignore",
+      120.0,
+      "none"
+     ]
+    ],
+    "end_conditions": [
+     [
+      "DistanceFromPositionC",
+      0.0,
+      "metres"
+     ],
+     [
+      "DistanceFromTarget",
+      0.0,
+      "metres"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ],
+     [
+      "Ignore",
+      0.0,
+      "none"
+     ]
+    ],
+    "start_event": "DoNothing",
+    "end_event": "DoNothing",
+    "accel_multi": 0.017,
+    "speed_cap_multi": 4.0,
+    "deaccel_multi": 1.0,
+    "total_accel_multi_sq": 1.0,
+    "mod_future_step": 0.017,
+    "accel_mps2": 265.20000000000005,
+    "speed_cap_mps": 1040.0,
+    "forward": "ForwardOriginDirection",
+    "up": "UpOriginDirection",
+    "position_b": "Nothing",
+    "position_c": "Target",
+    "elevation": "Surface",
+    "adjust_forward": true,
+    "adjust_up": true,
+    "adjust_position_b": true,
+    "adjust_position_c": true,
+    "lead_rotate_elevate_b": false,
+    "lead_rotate_elevate_c": false,
+    "trajectory_relative_to_b": false,
+    "elevation_relative_to_c": false,
+    "desired_elevation": 0.0,
+    "elevation_tolerance": 0.0,
+    "lead_distance": 40.0,
+    "push_lead_by_travel": true,
+    "tracking_distance": 100.0,
+    "angle_offset": 0.0,
+    "stored_start_id": 0,
+    "stored_end_id": 0,
+    "stored_start_type": "PositionA",
+    "stored_end_type": "Target",
+    "offset_min_radius": 0.0,
+    "offset_max_radius": 0.0,
+    "offset_time": 0,
+    "orbit": false,
+    "orbit_radius": 0.0,
+    "swap_navigation_type": false,
+    "disable_avoidance": false,
+    "ends_immediately": false
+   }
+  ],
+  "terminal_speed": 1040.0,
+  "boost_ticks": 120.0,
+  "aoe": 75000.0,
+  "aoe_r": 11.0,
+  "eol_damage": 1.0,
+  "eol_radius": 1.0,
+  "min_arming_time": 90.0,
+  "accel": 15600.0,
+  "life": 2304,
+  "steering": 140.0,
+  "inaccuracy": 1.0,
+  "offset_ratio": 0.7,
+  "offset_time": 180,
+  "offset_min": 2000.0,
+  "max_chase": 768
+ }
+}

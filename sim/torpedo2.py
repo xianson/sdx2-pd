@@ -62,7 +62,21 @@ import json, math, os, random
 
 from vec import V
 
-_P = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'torpedo_profiles.json')
+# Resolve the profile data wherever it lives: alongside this file, in a sibling
+# extract/ directory (the published repo layout), or one level up (the original flat
+# scratchpad layout). Hard-coding '..' broke as soon as the tree was reorganised.
+def _find_profiles():
+    import os
+    here = os.path.dirname(os.path.abspath(__file__))
+    for cand in (os.path.join(here, 'torpedo_profiles.json'),
+                 os.path.join(here, os.pardir, 'extract', 'torpedo_profiles.json'),
+                 os.path.join(here, os.pardir, 'torpedo_profiles.json')):
+        if os.path.exists(cand):
+            return cand
+    raise IOError('torpedo_profiles.json not found near ' + here)
+
+
+_P = _find_profiles()
 PROFILES = json.load(open(_P, encoding='utf-8'))
 
 DT = 1.0 / 60.0                 # MyEngineConstants.PHYSICS_STEP_SIZE_IN_SECONDS
