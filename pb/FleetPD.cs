@@ -9,7 +9,8 @@
 //             leak estimation both cost work the fight does not need.
 //    vanilla  passive control: full range, no ladder, stats still recorded to their own
 //             totals. 'active' resumes, 'toggle' flips. The in-game control for the
-//             simulator's `no PB` baseline.
+//             simulator's `no PB` baseline. NOT persisted -- always starts ACTIVE, so a
+//             control run can never silently outlive a recompile or a script update.
 //             Toggling it on also forces a weapon rescan and an immediate IGC poll,
 //             so it is the only diagnostic argument there is.
 //
@@ -178,8 +179,9 @@ double OrphanEst;
 // statistic is still recorded. Toggle with the 'vanilla' / 'active' argument. Totals are
 // kept per mode so the log compares the two directly -- the in-game control for the
 // simulator's `no PB` row.
+// VANILLA is deliberately NOT persisted: see the note in the header. Always starts
+// ACTIVE so a control run cannot outlive the session it was collected for.
 bool Vanilla;
-bool Debug;
 int  VKills, VLeaks, VBlocks, VFired, VWaves;
 readonly List<IMyTerminalBlock> _dmgScan = new List<IMyTerminalBlock>();
 
@@ -199,8 +201,6 @@ public Program() {
     // Deliberately NO SetMessageCallback: we poll in Gossip() on the Update10 tick.
     // A callback plus an unconditional broadcast each run makes every hull wake every
     // other hull, which then broadcasts again — a self-sustaining message storm.
-    Vanilla = Storage != null && Storage.Contains("vanilla");
-    Debug = Storage != null && Storage.Contains("debug");
     if (Ready) Discover();
 }
 
@@ -411,7 +411,7 @@ void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
         m.InFlight++;
         m.Spawns++;
         TotalSpawns++;
-        if (Debug) {
+        {
             var sh = new Shot();
             sh.P = pos;
             sh.T = Now;
@@ -421,7 +421,6 @@ void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
         return;
     }
     if (m.InFlight > 0) m.InFlight--;
-    if (!Debug) return;
     Shot rec;
     if (!Airborne.TryGetValue(projId, out rec)) return;
     Airborne.Remove(projId);
@@ -446,7 +445,6 @@ public void Main(string arg, UpdateType src) {
     }
     if (arg == "vanilla" || arg == "active" || arg == "toggle") {
         Vanilla = arg == "toggle" ? !Vanilla : arg == "vanilla";
-        SaveFlags();
         // Close any wave in progress so its stats are not split across two modes.
         foreach (var m in Mounts) {
             if (!Alive(m.Blk)) continue;
@@ -454,20 +452,6 @@ public void Main(string arg, UpdateType src) {
             SetRange(m, m.BaseRange);
         }
         Echo("mode -> " + (Vanilla ? "VANILLA (passive control)" : "ACTIVE"));
-        return;
-    }
-    if (arg == "debug") {
-        // One diagnostic argument. Toggling it on also forces a weapon rescan and an
-        // immediate IGC poll and write, so there is nothing else to remember.
-        Debug = !Debug;
-        SaveFlags();
-        if (!Debug) { Me.CustomData = ""; Echo("debug -> OFF"); return; }
-        Discover();
-        Gossip();
-        Inbound = FleetInbound();
-        LogDue = 0.0;
-        WriteLog();
-        Report();
         return;
     }
     if (Mounts.Count == 0) { Discover(); if (Mounts.Count == 0) { Echo("No CoreSystems weapons found."); return; } }
@@ -487,7 +471,7 @@ public void Main(string arg, UpdateType src) {
     // cumulative leakers when it went wrong.
     // ---- damage sensor. Counting blocks is O(n), so it is sampled rather than polled.
     int lostNow = 0;
-    if (Debug && Now >= DamagePollDue) {
+    if (Now >= DamagePollDue) {
         DamagePollDue = Now + DAMAGE_POLL_S;
         _dmgScan.Clear();
         GridTerminalSystem.GetBlocks(_dmgScan);
@@ -503,7 +487,7 @@ public void Main(string arg, UpdateType src) {
         LastDropAt = Now;
         // Orphaned-round estimate: of everything airborne right now, the share committed
         // to the torpedoes that just died is about died / (live before they died).
-        if (Debug && PrevInbound > 0) {
+        if (PrevInbound > 0) {
             int air = 0;
             for (int i = 0; i < Mounts.Count; i++) air += Mounts[i].InFlight;
             double orph = air * ((double)died / PrevInbound);
@@ -554,8 +538,8 @@ public void Main(string arg, UpdateType src) {
             if (m.Rung != 0) { m.Rung = 0; m.LastDescend = -99.0; }
             SetRange(m, m.BaseRange);
         }
-        if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
-    if (Debug) Report(); else Status();
+        if (Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+    Report();
         return;                       // nothing else to do until a threat appears
     }
     if (ZeroRuns >= WAVE_GAP_TICKS) {   // a fresh engagement: reset the opening spread
@@ -580,8 +564,8 @@ public void Main(string arg, UpdateType src) {
             if (m.Rung != 0) m.Rung = 0;
             SetRange(m, m.BaseRange);
         }
-        if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
-    if (Debug) Report(); else Status();
+        if (Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+    Report();
         return;
     }
 
@@ -626,8 +610,8 @@ public void Main(string arg, UpdateType src) {
         // Fire is NEVER toggled. Every withholding policy tested lost.
     }
 
-    if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
-    if (Debug) Report(); else Status();
+    if (Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+    Report();
 }
 
 // Single choke point for range changes, so the diagnostics can count them and we never
@@ -719,17 +703,6 @@ void Respread() {
     }
 }
 
-// Non-debug output: one line, so the block is visibly alive without doing any work.
-void Status() {
-    Echo("FleetPD " + (Vanilla ? "[VANILLA] " : "") + Mounts.Count + " mounts, "
-         + Inbound + " inbound, hull " + (HullOrdinal + 1) + "/" + HullCount
-         + (Mounts.Count == 0 ? "  -- no weapons, run 'debug'" : "")
-         + "\n'debug' for diagnostics");
-}
-
-void SaveFlags() {
-    Storage = (Vanilla ? "vanilla " : "") + (Debug ? "debug" : "");
-}
 
 void Report() {
     var sb = new StringBuilder();

@@ -75,7 +75,6 @@ int    ShotHits, ShotFlyouts;
 double ShotFlightSum;
 double OrphanEst;
 bool Vanilla;
-bool Debug;
 int  VKills, VLeaks, VBlocks, VFired, VWaves;
 readonly List<IMyTerminalBlock> _dmgScan = new List<IMyTerminalBlock>();
 int    IgcSent;
@@ -90,8 +89,6 @@ Runtime.UpdateFrequency = UpdateFrequency.Update10;
 Wc = new WcPbApi();
 try { Ready = Wc.Activate(Me); } catch { Ready = false; }
 Igc = IGC.RegisterBroadcastListener(IGC_TAG);
-Vanilla = Storage != null && Storage.Contains("vanilla");
-Debug = Storage != null && Storage.Contains("debug");
 if (Ready) Discover();
 }
 void Gossip() {
@@ -232,7 +229,7 @@ if (start) {
 m.InFlight++;
 m.Spawns++;
 TotalSpawns++;
-if (Debug) {
+{
 var sh = new Shot();
 sh.P = pos;
 sh.T = Now;
@@ -242,7 +239,6 @@ Airborne[projId] = sh;
 return;
 }
 if (m.InFlight > 0) m.InFlight--;
-if (!Debug) return;
 Shot rec;
 if (!Airborne.TryGetValue(projId, out rec)) return;
 Airborne.Remove(projId);
@@ -264,7 +260,6 @@ Discover();
 }
 if (arg == "vanilla" || arg == "active" || arg == "toggle") {
 Vanilla = arg == "toggle" ? !Vanilla : arg == "vanilla";
-SaveFlags();
 foreach (var m in Mounts) {
 if (!Alive(m.Blk)) continue;
 m.Rung = 0;
@@ -273,24 +268,12 @@ SetRange(m, m.BaseRange);
 Echo("mode -> " + (Vanilla ? "VANILLA (passive control)" : "ACTIVE"));
 return;
 }
-if (arg == "debug") {
-Debug = !Debug;
-SaveFlags();
-if (!Debug) { Me.CustomData = ""; Echo("debug -> OFF"); return; }
-Discover();
-Gossip();
-Inbound = FleetInbound();
-LogDue = 0.0;
-WriteLog();
-Report();
-return;
-}
 if (Mounts.Count == 0) { Discover(); if (Mounts.Count == 0) { Echo("No CoreSystems weapons found."); return; } }
 Now += Runtime.TimeSinceLastRun.TotalSeconds;
 Gossip();
 Inbound = FleetInbound();
 int lostNow = 0;
-if (Debug && Now >= DamagePollDue) {
+if (Now >= DamagePollDue) {
 DamagePollDue = Now + DAMAGE_POLL_S;
 _dmgScan.Clear();
 GridTerminalSystem.GetBlocks(_dmgScan);
@@ -302,7 +285,7 @@ if (Inbound < PrevInbound) {
 int died = PrevInbound - Inbound;
 PendingDrops += died;
 LastDropAt = Now;
-if (Debug && PrevInbound > 0) {
+if (PrevInbound > 0) {
 int air = 0;
 for (int i = 0; i < Mounts.Count; i++) air += Mounts[i].InFlight;
 double orph = air * ((double)died / PrevInbound);
@@ -338,8 +321,8 @@ if (!Alive(m.Blk)) continue;
 if (m.Rung != 0) { m.Rung = 0; m.LastDescend = -99.0; }
 SetRange(m, m.BaseRange);
 }
-if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
-if (Debug) Report(); else Status();
+if (Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+Report();
 return;
 }
 if (ZeroRuns >= WAVE_GAP_TICKS) {
@@ -359,8 +342,8 @@ if (!Alive(m.Blk)) continue;
 if (m.Rung != 0) m.Rung = 0;
 SetRange(m, m.BaseRange);
 }
-if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
-if (Debug) Report(); else Status();
+if (Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+Report();
 return;
 }
 foreach (var m in Mounts) {
@@ -393,8 +376,8 @@ m.Descents++;
 }
 SetRange(m, RungRange(m, m.Rung));
 }
-if (Debug && Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
-if (Debug) Report(); else Status();
+if (Now >= LogDue) { LogDue = Now + LOG_EVERY_S; WriteLog(); }
+Report();
 }
 double RungRange(Mount m, int rung) {
 double span = m.BaseRange - RANGE_FLOOR_M;
@@ -469,15 +452,6 @@ foreach (var m in Mounts) {
 m.Rung = m.OpeningRung;
 m.LastDescend = -99.0;
 }
-}
-void Status() {
-Echo("FleetPD " + (Vanilla ? "[VANILLA] " : "") + Mounts.Count + " mounts, "
-+ Inbound + " inbound, hull " + (HullOrdinal + 1) + "/" + HullCount
-+ (Mounts.Count == 0 ? "  -- no weapons, run 'debug'" : "")
-+ "\n'debug' for diagnostics");
-}
-void SaveFlags() {
-Storage = (Vanilla ? "vanilla " : "") + (Debug ? "debug" : "");
 }
 void Report() {
 var sb = new StringBuilder();
