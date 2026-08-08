@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AssemblyName>vectors</AssemblyName>
+    <RootNamespace>csdiff</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>CS0169;CS0414;CS0649</NoWarn>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="extracted.cs" /><Compile Include="predict.cs" /><Compile Include="collide.cs" /><Compile Include="firing.cs" /><Compile Include="vectors.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="VRage.Math"><HintPath>$(SEBIN)/VRage.Math.dll</HintPath></Reference>
+    <Reference Include="VRage.Game"><HintPath>$(SEBIN)/VRage.Game.dll</HintPath></Reference>
+    <Reference Include="VRage"><HintPath>$(SEBIN)/VRage.dll</HintPath></Reference>
+    <Reference Include="VRage.Library"><HintPath>$(SEBIN)/VRage.Library.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
