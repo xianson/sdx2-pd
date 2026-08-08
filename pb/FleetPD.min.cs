@@ -8,8 +8,6 @@ const double MIN_RANGE_M    = 300.0;
 const double MIN_RPM        = 100.0;
 const double RPM_SAMPLE_S   = 8.0;
 const double RESCAN_S       = 30.0;
-const bool   DEBUG_PANEL    = true;
-const bool   CUSTOMDATA_LOG = true;
 const int    LOG_WAVES      = 24;
 const double DAMAGE_POLL_S  = 1.0;
 const string IGC_TAG        = "FleetPD.v1";
@@ -70,6 +68,7 @@ double DamagePollDue;
 int    TotKills, TotLeaks, TotBlocks, TotFired;
 int    _waveFiredAt, _waveDescAt;
 bool Vanilla;
+bool Debug;
 int  VKills, VLeaks, VBlocks, VFired, VWaves;
 readonly List<IMyTerminalBlock> _dmgScan = new List<IMyTerminalBlock>();
 int    IgcSent;
@@ -85,6 +84,7 @@ Wc = new WcPbApi();
 try { Ready = Wc.Activate(Me); } catch { Ready = false; }
 Igc = IGC.RegisterBroadcastListener(IGC_TAG);
 Vanilla = Storage != null && Storage.Contains("vanilla");
+Debug = Storage != null && Storage.Contains("debug");
 if (Ready) Discover();
 }
 void Gossip() {
@@ -211,7 +211,7 @@ Discover();
 }
 if (arg == "vanilla" || arg == "active" || arg == "toggle") {
 Vanilla = arg == "toggle" ? !Vanilla : arg == "vanilla";
-Storage = Vanilla ? "vanilla" : "";
+SaveFlags();
 if (Cur != null) CloseWave();
 foreach (var m in Mounts) {
 if (!Alive(m.Blk)) continue;
@@ -219,6 +219,13 @@ m.Rung = 0;
 SetRange(m, m.BaseRange);
 }
 Echo("mode -> " + (Vanilla ? "VANILLA (passive control)" : "ACTIVE"));
+return;
+}
+if (arg == "debug") {
+Debug = !Debug;
+SaveFlags();
+if (!Debug) Me.CustomData = "";
+Echo("debug -> " + (Debug ? "ON (panel + CustomData wave log)" : "OFF"));
 return;
 }
 if (arg == "rescan") { Discover(); }
@@ -233,7 +240,7 @@ Now += Runtime.TimeSinceLastRun.TotalSeconds;
 Gossip();
 Inbound = FleetInbound();
 int lostNow = 0;
-if (Now >= DamagePollDue) {
+if (Debug && Now >= DamagePollDue) {
 DamagePollDue = Now + DAMAGE_POLL_S;
 _dmgScan.Clear();
 GridTerminalSystem.GetBlocks(_dmgScan);
@@ -266,7 +273,7 @@ if (m.Rung != 0) { m.Rung = 0; m.LastDescend = -99.0; }
 SetRange(m, m.BaseRange);
 }
 if (Cur != null && ZeroRuns >= WAVE_GAP_TICKS) CloseWave();
-if (DEBUG_PANEL) Report();
+if (Debug) Report(); else Status();
 return;
 }
 if (ZeroRuns >= WAVE_GAP_TICKS) {
@@ -294,7 +301,7 @@ if (!Alive(m.Blk)) continue;
 if (m.Rung != 0) m.Rung = 0;
 SetRange(m, m.BaseRange);
 }
-if (DEBUG_PANEL) Report();
+if (Debug) Report(); else Status();
 return;
 }
 foreach (var m in Mounts) {
@@ -329,7 +336,7 @@ double want = m.BaseRange * RUNGS[m.Rung];
 if (want < MIN_RANGE_M) want = MIN_RANGE_M;
 SetRange(m, want);
 }
-if (DEBUG_PANEL) Report();
+if (Debug) Report(); else Status();
 }
 void SetRange(Mount m, double r) {
 if (Math.Abs(r - m.AppliedRange) < 0.5) return;
@@ -359,7 +366,7 @@ TotBlocks += Cur.BlocksLost; TotFired += Cur.Fired;
 Log.Add(Cur);
 while (Log.Count > LOG_WAVES) Log.RemoveAt(0);
 Cur = null;
-if (CUSTOMDATA_LOG) WriteLog();
+if (Debug) WriteLog();
 }
 void WriteLog() {
 var sb = new StringBuilder();
@@ -369,6 +376,7 @@ sb.Append("FleetPD log   grid=").Append(Me.CubeGrid.EntityId % 1000000L)
 sb.AppendLine("kill~ and leak~ are ESTIMATES. Nothing reports being hit, so the script");
 sb.AppendLine("correlates a fall in inbound count with a fall in grid block count.");
 sb.AppendLine("A leaker that destroys nothing is missed; splash may be overcounted.");
+sb.AppendLine("Only waves fought with debug ON are recorded.");
 sb.AppendLine();
 sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  blocks  fired  r/kill~  desc  heat");
 for (int i = 0; i < Log.Count; i++) {
@@ -412,6 +420,15 @@ foreach (var m in Mounts) {
 m.Rung = m.OpeningRung;
 m.LastDescend = -99.0;
 }
+}
+void Status() {
+Echo("FleetPD " + (Vanilla ? "[VANILLA] " : "") + Mounts.Count + " mounts, "
++ Inbound + " inbound, hull " + (HullOrdinal + 1) + "/" + HullCount
++ (Mounts.Count == 0 ? "  -- no weapons, run 'debug'" : "")
++ "\n'debug' for diagnostics");
+}
+void SaveFlags() {
+Storage = (Vanilla ? "vanilla " : "") + (Debug ? "debug" : "");
 }
 void Report() {
 var sb = new StringBuilder();

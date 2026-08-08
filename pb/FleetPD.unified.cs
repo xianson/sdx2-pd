@@ -13,6 +13,16 @@
 //  Paste into a Programmable Block, append the WcPbApi class, recompile.
 //  No configuration. Put one on every hull; they find each other over IGC.
 //
+//  ARGUMENTS (default behaviour needs none -- it just runs the optimal net):
+//    debug    toggle diagnostics: per-mount Echo panel + a per-wave CustomData log.
+//             OFF by default, because the panel and the block re-count that powers
+//             leak estimation both cost work the fight does not need.
+//    vanilla  passive control: full range, no ladder, stats still recorded to their own
+//             totals. 'active' resumes, 'toggle' flips. The in-game control for the
+//             simulator's `no PB` baseline.
+//    rescan   force a weapon re-scan.
+//    igc      force an IGC poll and print the net table now.
+//
 //  MEASURED RESULT (3 hulls, 24 torpedoes/wave, 20 waves, 6 s gaps, 12 seeds):
 //      no script .................. dies wave ~2.6,  71.5 cumulative leakers
 //      shot-counting ladder ....... dies wave  5.6,  21.8
@@ -68,8 +78,9 @@ const double MIN_RANGE_M    = 300.0;  // never gate a mount below this
 const double MIN_RPM        = 100.0;  // below this, leave the mount ALONE
 const double RPM_SAMPLE_S   = 8.0;    // observation window for measured rate
 const double RESCAN_S       = 30.0;   // pick up built/repaired/destroyed mounts
-const bool   DEBUG_PANEL    = true;
-const bool   CUSTOMDATA_LOG = true;   // write a per-wave log to this PB's CustomData
+// Diagnostics are OPT-IN: run the PB with the argument 'debug' to toggle them.
+// Default is the optimal net with no panel, no CustomData writes, and no block
+// re-count, so the normal path costs only what fighting requires.
 const int    LOG_WAVES      = 24;     // waves retained in the log ring
 const double DAMAGE_POLL_S  = 1.0;    // how often to re-count blocks (damage sensor)
 const string IGC_TAG        = "FleetPD.v1";
@@ -165,6 +176,7 @@ int    _waveFiredAt, _waveDescAt;
 // kept per mode so the log compares the two directly -- the in-game control for the
 // simulator's `no PB` row.
 bool Vanilla;
+bool Debug;
 int  VKills, VLeaks, VBlocks, VFired, VWaves;
 readonly List<IMyTerminalBlock> _dmgScan = new List<IMyTerminalBlock>();
 
@@ -185,6 +197,7 @@ public Program() {
     // A callback plus an unconditional broadcast each run makes every hull wake every
     // other hull, which then broadcasts again — a self-sustaining message storm.
     Vanilla = Storage != null && Storage.Contains("vanilla");
+    Debug = Storage != null && Storage.Contains("debug");
     if (Ready) Discover();
 }
 
@@ -378,7 +391,7 @@ public void Main(string arg, UpdateType src) {
     }
     if (arg == "vanilla" || arg == "active" || arg == "toggle") {
         Vanilla = arg == "toggle" ? !Vanilla : arg == "vanilla";
-        Storage = Vanilla ? "vanilla" : "";
+        SaveFlags();
         // Close any wave in progress so its stats are not split across two modes.
         if (Cur != null) CloseWave();
         foreach (var m in Mounts) {
@@ -387,6 +400,13 @@ public void Main(string arg, UpdateType src) {
             SetRange(m, m.BaseRange);
         }
         Echo("mode -> " + (Vanilla ? "VANILLA (passive control)" : "ACTIVE"));
+        return;
+    }
+    if (arg == "debug") {
+        Debug = !Debug;
+        SaveFlags();
+        if (!Debug) Me.CustomData = "";
+        Echo("debug -> " + (Debug ? "ON (panel + CustomData wave log)" : "OFF"));
         return;
     }
     if (arg == "rescan") { Discover(); }
@@ -413,7 +433,7 @@ public void Main(string arg, UpdateType src) {
     // cumulative leakers when it went wrong.
     // ---- damage sensor. Counting blocks is O(n), so it is sampled rather than polled.
     int lostNow = 0;
-    if (Now >= DamagePollDue) {
+    if (Debug && Now >= DamagePollDue) {
         DamagePollDue = Now + DAMAGE_POLL_S;
         _dmgScan.Clear();
         GridTerminalSystem.GetBlocks(_dmgScan);
@@ -457,7 +477,7 @@ public void Main(string arg, UpdateType src) {
             SetRange(m, m.BaseRange);
         }
         if (Cur != null && ZeroRuns >= WAVE_GAP_TICKS) CloseWave();
-        if (DEBUG_PANEL) Report();
+        if (Debug) Report(); else Status();
         return;                       // nothing else to do until a threat appears
     }
     if (ZeroRuns >= WAVE_GAP_TICKS) {                       // new engagement begins
@@ -490,7 +510,7 @@ public void Main(string arg, UpdateType src) {
             if (m.Rung != 0) m.Rung = 0;
             SetRange(m, m.BaseRange);
         }
-        if (DEBUG_PANEL) Report();
+        if (Debug) Report(); else Status();
         return;
     }
 
@@ -537,7 +557,7 @@ public void Main(string arg, UpdateType src) {
         // Fire is NEVER toggled. Every withholding policy tested lost.
     }
 
-    if (DEBUG_PANEL) Report();
+    if (Debug) Report(); else Status();
 }
 
 // Single choke point for range changes, so the diagnostics can count them and we never
@@ -574,7 +594,7 @@ void CloseWave() {
     Log.Add(Cur);
     while (Log.Count > LOG_WAVES) Log.RemoveAt(0);
     Cur = null;
-    if (CUSTOMDATA_LOG) WriteLog();
+    if (Debug) WriteLog();
 }
 
 void WriteLog() {
@@ -585,6 +605,7 @@ void WriteLog() {
     sb.AppendLine("kill~ and leak~ are ESTIMATES. Nothing reports being hit, so the script");
     sb.AppendLine("correlates a fall in inbound count with a fall in grid block count.");
     sb.AppendLine("A leaker that destroys nothing is missed; splash may be overcounted.");
+    sb.AppendLine("Only waves fought with debug ON are recorded.");
     sb.AppendLine();
     sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  blocks  fired  r/kill~  desc  heat");
     for (int i = 0; i < Log.Count; i++) {
@@ -632,6 +653,18 @@ void Respread() {
         // InFlight is not touched: the monitor owns it, and rounds still in the
         // air are real regardless of wave bookkeeping.
     }
+}
+
+// Non-debug output: one line, so the block is visibly alive without doing any work.
+void Status() {
+    Echo("FleetPD " + (Vanilla ? "[VANILLA] " : "") + Mounts.Count + " mounts, "
+         + Inbound + " inbound, hull " + (HullOrdinal + 1) + "/" + HullCount
+         + (Mounts.Count == 0 ? "  -- no weapons, run 'debug'" : "")
+         + "\n'debug' for diagnostics");
+}
+
+void SaveFlags() {
+    Storage = (Vanilla ? "vanilla " : "") + (Debug ? "debug" : "");
 }
 
 void Report() {
