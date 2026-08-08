@@ -80,7 +80,9 @@ IMyBroadcastListener Igc;
 // contribute nothing. The API accepts ANY victim id, so peers exchange grid ids
 // and every hull then polls every peer locally — fresher and simpler than
 // broadcasting counts, since no count can go stale in transit.
-readonly Dictionary<long, int> Peers = new Dictionary<long, int>();  // gridId -> age
+readonly Dictionary<long, int> Peers = new Dictionary<long, int>();      // gridId -> age in runs
+readonly Dictionary<long, int> PeerInbound = new Dictionary<long, int>(); // gridId -> its inbound
+readonly Dictionary<long, bool> PeerQueryable = new Dictionary<long, bool>(); // API said Item1
 readonly List<long> PeerIds = new List<long>();
 int HullOrdinal;      // stable index among peers, for fleet-wide rung tiling
 int HullCount = 1;
@@ -122,6 +124,11 @@ double RescanDue;
 int    RangeWrites;
 int    WaveCount;
 int    TotalSpawns;
+int    IgcSent;
+int    IgcRecv;
+int    IgcBadPayload;
+int    PeersEverSeen;
+double LastPeerHeard = -1.0;
 int    ZeroRuns = WAVE_GAP_TICKS;
 int    Inbound;
 
@@ -142,11 +149,16 @@ public Program() {
 void Gossip() {
     while (Igc.HasPendingMessage) {
         var msg = Igc.AcceptMessage();
-        if (!(msg.Data is long)) continue;
+        IgcRecv++;
+        if (!(msg.Data is long)) { IgcBadPayload++; continue; }
         long id = (long)msg.Data;
-        if (id != Me.CubeGrid.EntityId) Peers[id] = 0;
+        if (id == Me.CubeGrid.EntityId) continue;      // our own broadcast echoing back
+        if (!Peers.ContainsKey(id)) PeersEverSeen++;
+        Peers[id] = 0;
+        LastPeerHeard = Now;
     }
     IGC.SendBroadcastMessage(IGC_TAG, Me.CubeGrid.EntityId);
+    IgcSent++;
 
     // age out hulls that have gone quiet (destroyed, PB off, out of range)
     PeerIds.Clear();
@@ -182,8 +194,13 @@ void Gossip() {
 // engagement signal an escort needs, and it is what makes escorts participate.
 int FleetInbound() {
     int best = 0;
+    PeerInbound.Clear();
+    PeerQueryable.Clear();
     for (int i = 0; i < PeerIds.Count; i++) {
-        var t = Wc.GetProjectilesLockedOn(PeerIds[i]);
+        long id = PeerIds[i];
+        var t = Wc.GetProjectilesLockedOn(id);
+        PeerQueryable[id] = t.Item1;
+        PeerInbound[id] = t.Item1 ? t.Item2 : -1;
         if (t.Item1 && t.Item2 > best) best = t.Item2;
     }
     return best;
@@ -315,6 +332,12 @@ public void Main(string arg, UpdateType src) {
         Discover();
     }
     if (arg == "rescan") { Discover(); }
+    if (arg == "igc") {          // force a fresh poll and print, for spot checks
+        Gossip();
+        Inbound = FleetInbound();
+        Report();
+        return;
+    }
     if (Mounts.Count == 0) { Discover(); if (Mounts.Count == 0) { Echo("No CoreSystems weapons found."); return; } }
 
     Now += Runtime.TimeSinceLastRun.TotalSeconds;
@@ -489,8 +512,39 @@ void Report() {
           .Append("  ").Append(m.Exempt ? "EX" : (Alive(m.Blk) ? "ok" : "DEAD"))
           .AppendLine();
     }
-    sb.Append("peers=").Append(Peers.Count).Append("  runtime=")
-      .Append(Runtime.LastRunTimeMs.ToString("0.00")).Append("ms");
+    // ---- IGC / fleet net. `me` is this grid; every other row is a peer heard over
+    // IGC. `inb` is what GetProjectilesLockedOn reports for THAT grid, which is the
+    // whole point of the net: a consort has 0 locked onto itself while the lead is
+    // saturated, so without peers an escort never sees an engagement at all.
+    sb.Append("-- IGC net --  ordinal ").Append(HullOrdinal + 1).Append('/').Append(HullCount)
+      .Append("  sent=").Append(IgcSent).Append(" recv=").Append(IgcRecv);
+    if (IgcBadPayload > 0) sb.Append(" badPayload=").Append(IgcBadPayload);
+    sb.AppendLine();
+    sb.Append("  grid            age  inb").AppendLine();
+    for (int i = 0; i < PeerIds.Count; i++) {
+        long id = PeerIds[i];
+        bool self = id == Me.CubeGrid.EntityId;
+        int age;
+        int inb;
+        bool q;
+        if (!Peers.TryGetValue(id, out age)) age = 0;
+        if (!PeerInbound.TryGetValue(id, out inb)) inb = -1;
+        if (!PeerQueryable.TryGetValue(id, out q)) q = false;
+        sb.Append("  ").Append((id % 1000000L).ToString().PadLeft(7))
+          .Append(self ? " (me)  " : "       ")
+          .Append(self ? "  -" : age.ToString().PadLeft(3))
+          .Append(q ? inb.ToString().PadLeft(5) : "  n/a")
+          .AppendLine();
+    }
+    if (HullCount == 1) {
+        sb.AppendLine("  SOLO: no peers heard. Escorts cannot see the lead's inbound");
+        sb.AppendLine("  count without the net, so they will not engage.");
+    } else if (LastPeerHeard >= 0.0 && Now - LastPeerHeard > 5.0) {
+        sb.Append("  WARNING: no peer traffic for ")
+          .Append((Now - LastPeerHeard).ToString("0")).Append("s (net dropping?)").AppendLine();
+    }
+    sb.Append("peersEver=").Append(PeersEverSeen)
+      .Append("  runtime=").Append(Runtime.LastRunTimeMs.ToString("0.00")).Append("ms");
     Echo(sb.ToString());
 }
 
