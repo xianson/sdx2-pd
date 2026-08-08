@@ -69,6 +69,9 @@ const double MIN_RPM        = 100.0;  // below this, leave the mount ALONE
 const double RPM_SAMPLE_S   = 8.0;    // observation window for measured rate
 const double RESCAN_S       = 30.0;   // pick up built/repaired/destroyed mounts
 const bool   DEBUG_PANEL    = true;
+const bool   CUSTOMDATA_LOG = true;   // write a per-wave log to this PB's CustomData
+const int    LOG_WAVES      = 24;     // waves retained in the log ring
+const double DAMAGE_POLL_S  = 1.0;    // how often to re-count blocks (damage sensor)
 const string IGC_TAG        = "FleetPD.v1";
 const int    PEER_TIMEOUT   = 30;     // runs before a silent peer is dropped
 const bool   FLEET_TILE     = true;   // offset opening rungs by hull ordinal
@@ -134,6 +137,37 @@ double RescanDue;
 int    RangeWrites;
 int    WaveCount;
 int    TotalSpawns;
+// ---- wave statistics.
+// LEAK DETECTION IS AN ESTIMATE, and the log says so. No API reports "a torpedo hit us":
+// WeaponCore's event monitor exposes only weapon-state triggers (Firing, Reloading,
+// Overheated, TargetRanged*), and GetProjectilesLockedOn returns a bare count. So the
+// script correlates two signals:
+//     inbound count FALLS      -> that many torpedoes ended, by kill or by arrival
+//     grid block count FALLS   -> we took damage
+// Endings that coincide with damage are attributed to leaks; the rest are counted kills.
+// A leaker that destroys nothing is undercounted; splash that kills a block without a
+// full arrival is overcounted. A good signal, not ground truth.
+class Wave {
+    public int    N, PeakIn, Ended, Kills, Leaks, BlocksLost, Fired, Descents;
+    public double Start, Dur, PeakHeat;
+    public bool   Vanilla;
+}
+Wave Cur;
+readonly List<Wave> Log = new List<Wave>();
+int    PrevInbound;
+int    PendingDrops;
+int    BlockCount = -1;
+double DamagePollDue;
+int    TotKills, TotLeaks, TotBlocks, TotFired;
+int    _waveFiredAt, _waveDescAt;
+// VANILLA MODE. Passive: mounts stay at full range and never descend, but every
+// statistic is still recorded. Toggle with the 'vanilla' / 'active' argument. Totals are
+// kept per mode so the log compares the two directly -- the in-game control for the
+// simulator's `no PB` row.
+bool Vanilla;
+int  VKills, VLeaks, VBlocks, VFired, VWaves;
+readonly List<IMyTerminalBlock> _dmgScan = new List<IMyTerminalBlock>();
+
 int    IgcSent;
 int    IgcRecv;
 int    IgcBadPayload;
@@ -150,6 +184,7 @@ public Program() {
     // Deliberately NO SetMessageCallback: we poll in Gossip() on the Update10 tick.
     // A callback plus an unconditional broadcast each run makes every hull wake every
     // other hull, which then broadcasts again — a self-sustaining message storm.
+    Vanilla = Storage != null && Storage.Contains("vanilla");
     if (Ready) Discover();
 }
 
@@ -341,6 +376,19 @@ public void Main(string arg, UpdateType src) {
         if (!Ready) { Echo("WeaponCore PB API unavailable."); return; }
         Discover();
     }
+    if (arg == "vanilla" || arg == "active" || arg == "toggle") {
+        Vanilla = arg == "toggle" ? !Vanilla : arg == "vanilla";
+        Storage = Vanilla ? "vanilla" : "";
+        // Close any wave in progress so its stats are not split across two modes.
+        if (Cur != null) CloseWave();
+        foreach (var m in Mounts) {
+            if (!Alive(m.Blk)) continue;
+            m.Rung = 0;
+            SetRange(m, m.BaseRange);
+        }
+        Echo("mode -> " + (Vanilla ? "VANILLA (passive control)" : "ACTIVE"));
+        return;
+    }
     if (arg == "rescan") { Discover(); }
     if (arg == "igc") {          // force a fresh poll and print, for spot checks
         Gossip();
@@ -363,6 +411,37 @@ public void Main(string arg, UpdateType src) {
     // cheap insurance: in game, waves need not arrive as cleanly as in the sim,
     // and a battery stranded on low rungs between waves was worth 40.9 vs 4.3
     // cumulative leakers when it went wrong.
+    // ---- damage sensor. Counting blocks is O(n), so it is sampled rather than polled.
+    int lostNow = 0;
+    if (Now >= DamagePollDue) {
+        DamagePollDue = Now + DAMAGE_POLL_S;
+        _dmgScan.Clear();
+        GridTerminalSystem.GetBlocks(_dmgScan);
+        int n = _dmgScan.Count;
+        if (BlockCount >= 0 && n < BlockCount) lostNow = BlockCount - n;
+        BlockCount = n;
+    }
+
+    // ---- inbound delta: a fall means that many torpedoes ended, somehow.
+    if (Inbound < PrevInbound) PendingDrops += PrevInbound - Inbound;
+    PrevInbound = Inbound;
+
+    if (Cur != null) {
+        if (Inbound > Cur.PeakIn) Cur.PeakIn = Inbound;
+        if (lostNow > 0) {
+            Cur.BlocksLost += lostNow;
+            int leak = PendingDrops < lostNow ? PendingDrops : lostNow;
+            if (leak > 0) { Cur.Leaks += leak; PendingDrops -= leak; }
+        }
+        double hot = 0.0;
+        foreach (var m in Mounts) {
+            if (!Alive(m.Blk)) continue;
+            float h = Wc.GetWeaponHeatLevel(m.Blk, m.Parts.Count > 0 ? m.Parts[0] : 0);
+            if (h > hot) hot = h;
+        }
+        if (hot > Cur.PeakHeat) Cur.PeakHeat = hot;
+    }
+
     // IDLE HANDLING — this is load-bearing and its absence is a real defect.
     // The ladder only has a job while torpedoes are inbound. Holding the spread while
     // idle leaves some mounts gated to 0.28x of their range (a few hundred metres), so
@@ -377,10 +456,22 @@ public void Main(string arg, UpdateType src) {
             if (m.Rung != 0) { m.Rung = 0; m.LastDescend = -99.0; }
             SetRange(m, m.BaseRange);
         }
+        if (Cur != null && ZeroRuns >= WAVE_GAP_TICKS) CloseWave();
         if (DEBUG_PANEL) Report();
         return;                       // nothing else to do until a threat appears
     }
-    if (ZeroRuns >= WAVE_GAP_TICKS) { Respread(); WaveCount++; }  // new engagement
+    if (ZeroRuns >= WAVE_GAP_TICKS) {                       // new engagement begins
+        Respread();
+        WaveCount++;
+        Cur = new Wave();
+        Cur.N = WaveCount;
+        Cur.Start = Now;
+        Cur.PeakIn = Inbound;
+        Cur.Vanilla = Vanilla;
+        _waveFiredAt = TotalSpawns;
+        _waveDescAt = TotalDescents();
+        PendingDrops = 0;
+    }
     ZeroRuns = 0;
 
     // Drop dead mounts and rescan if any went away. Cheap: reference checks only.
@@ -391,6 +482,17 @@ public void Main(string arg, UpdateType src) {
     if (lost) RescanDue = 0.0;
     // Periodic rescan also picks up newly built or repaired mounts.
     if (Now >= RescanDue) { RescanDue = Now + RESCAN_S; Discover(); }
+
+    if (Vanilla) {
+        // Passive control: full range on everything, no ladder, but keep logging.
+        foreach (var m in Mounts) {
+            if (!Alive(m.Blk)) continue;
+            if (m.Rung != 0) m.Rung = 0;
+            SetRange(m, m.BaseRange);
+        }
+        if (DEBUG_PANEL) Report();
+        return;
+    }
 
     foreach (var m in Mounts) {
         if (!Alive(m.Blk)) continue;
@@ -447,6 +549,82 @@ void SetRange(Mount m, double r) {
     Wc.SetBlockTrackingRange(m.Blk, (float)r);
 }
 
+int TotalDescents() {
+    int d = 0;
+    foreach (var m in Mounts) d += m.Descents;
+    return d;
+}
+
+// Whatever is still pending when the wave closes had no damage correlated with it, so it
+// is counted as a kill.
+void CloseWave() {
+    Cur.Dur = Now - Cur.Start;
+    Cur.Fired = TotalSpawns - _waveFiredAt;
+    Cur.Descents = TotalDescents() - _waveDescAt;
+    Cur.Kills += PendingDrops;
+    PendingDrops = 0;
+    Cur.Ended = Cur.Kills + Cur.Leaks;
+    if (Cur.Vanilla) {
+        VKills += Cur.Kills; VLeaks += Cur.Leaks;
+        VBlocks += Cur.BlocksLost; VFired += Cur.Fired; VWaves++;
+    } else {
+        TotKills += Cur.Kills; TotLeaks += Cur.Leaks;
+        TotBlocks += Cur.BlocksLost; TotFired += Cur.Fired;
+    }
+    Log.Add(Cur);
+    while (Log.Count > LOG_WAVES) Log.RemoveAt(0);
+    Cur = null;
+    if (CUSTOMDATA_LOG) WriteLog();
+}
+
+void WriteLog() {
+    var sb = new StringBuilder();
+    sb.Append("FleetPD log   grid=").Append(Me.CubeGrid.EntityId % 1000000L)
+      .Append("   hull ").Append(HullOrdinal + 1).Append('/').Append(HullCount)
+      .Append("   mounts=").Append(Mounts.Count).AppendLine();
+    sb.AppendLine("kill~ and leak~ are ESTIMATES. Nothing reports being hit, so the script");
+    sb.AppendLine("correlates a fall in inbound count with a fall in grid block count.");
+    sb.AppendLine("A leaker that destroys nothing is missed; splash may be overcounted.");
+    sb.AppendLine();
+    sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  blocks  fired  r/kill~  desc  heat");
+    for (int i = 0; i < Log.Count; i++) {
+        var w = Log[i];
+        sb.Append(w.N.ToString().PadLeft(4))
+          .Append(w.Vanilla ? "  VAN" : "  act")
+          .Append((w.Dur.ToString("0.0") + "s").PadLeft(7))
+          .Append(w.PeakIn.ToString().PadLeft(8))
+          .Append(w.Ended.ToString().PadLeft(7))
+          .Append(w.Kills.ToString().PadLeft(7))
+          .Append(w.Leaks.ToString().PadLeft(7))
+          .Append(w.BlocksLost.ToString().PadLeft(8))
+          .Append(w.Fired.ToString().PadLeft(7))
+          .Append((w.Kills > 0 ? ((double)w.Fired / w.Kills).ToString("0.0") : "-").PadLeft(9))
+          .Append(w.Descents.ToString().PadLeft(6))
+          .Append(((int)(w.PeakHeat * 100)).ToString().PadLeft(5)).Append('%')
+          .AppendLine();
+    }
+    sb.AppendLine();
+    sb.AppendLine("mode      waves  kill~  leak~  blocks   fired  r/kill~  intercept");
+    AppendTotals(sb, "ACTIVE", WaveCount - VWaves, TotKills, TotLeaks, TotBlocks, TotFired);
+    AppendTotals(sb, "VANILLA", VWaves, VKills, VLeaks, VBlocks, VFired);
+    sb.AppendLine();
+    sb.AppendLine("Run the PB with argument 'vanilla' to collect the passive control, then");
+    sb.AppendLine("'active' to resume. Compare the two intercept rates above.");
+    Me.CustomData = sb.ToString();
+}
+
+void AppendTotals(StringBuilder sb, string label, int waves, int k, int l, int b, int f) {
+    sb.Append(label.PadRight(9))
+      .Append(waves.ToString().PadLeft(5))
+      .Append(k.ToString().PadLeft(7))
+      .Append(l.ToString().PadLeft(7))
+      .Append(b.ToString().PadLeft(8))
+      .Append(f.ToString().PadLeft(8))
+      .Append((k > 0 ? ((double)f / k).ToString("0.0") : "-").PadLeft(9))
+      .Append((k + l > 0 ? (100.0 * k / (k + l)).ToString("0.0") + "%" : "-").PadLeft(11))
+      .AppendLine();
+}
+
 void Respread() {
     foreach (var m in Mounts) {
         m.Rung = m.OpeningRung;
@@ -458,7 +636,7 @@ void Respread() {
 
 void Report() {
     var sb = new StringBuilder();
-    sb.Append("== FleetPD ==  t=").Append(Now.ToString("0")).Append("s  hull ")
+    sb.Append(Vanilla ? "== FleetPD [VANILLA CONTROL] ==  t=" : "== FleetPD ==  t=").Append(Now.ToString("0")).Append("s  hull ")
       .Append(HullOrdinal + 1).Append('/').Append(HullCount).AppendLine();
 
     // ---- discovery, with the reason for every rejection. Silent filters were what
@@ -552,6 +730,15 @@ void Report() {
     } else if (LastPeerHeard >= 0.0 && Now - LastPeerHeard > 5.0) {
         sb.Append("  WARNING: no peer traffic for ")
           .Append((Now - LastPeerHeard).ToString("0")).Append("s (net dropping?)").AppendLine();
+    }
+    if (WaveCount > 0 || Cur != null) {
+        sb.Append("-- stats --  kill~=").Append(TotKills).Append(" leak~=").Append(TotLeaks);
+        if (TotKills + TotLeaks > 0)
+            sb.Append(" intercept=")
+              .Append((100.0 * TotKills / (TotKills + TotLeaks)).ToString("0")).Append('%');
+        sb.Append(" blocksLost=").Append(TotBlocks);
+        if (Cur != null) sb.Append("  [wave ").Append(Cur.N).Append(" live]");
+        sb.AppendLine();
     }
     sb.Append("peersEver=").Append(PeersEverSeen)
       .Append("  runtime=").Append(Runtime.LastRunTimeMs.ToString("0.00")).Append("ms");

@@ -9,6 +9,9 @@ const double MIN_RPM        = 100.0;
 const double RPM_SAMPLE_S   = 8.0;
 const double RESCAN_S       = 30.0;
 const bool   DEBUG_PANEL    = true;
+const bool   CUSTOMDATA_LOG = true;
+const int    LOG_WAVES      = 24;
+const double DAMAGE_POLL_S  = 1.0;
 const string IGC_TAG        = "FleetPD.v1";
 const int    PEER_TIMEOUT   = 30;
 const bool   FLEET_TILE     = true;
@@ -53,6 +56,22 @@ double RescanDue;
 int    RangeWrites;
 int    WaveCount;
 int    TotalSpawns;
+class Wave {
+public int    N, PeakIn, Ended, Kills, Leaks, BlocksLost, Fired, Descents;
+public double Start, Dur, PeakHeat;
+public bool   Vanilla;
+}
+Wave Cur;
+readonly List<Wave> Log = new List<Wave>();
+int    PrevInbound;
+int    PendingDrops;
+int    BlockCount = -1;
+double DamagePollDue;
+int    TotKills, TotLeaks, TotBlocks, TotFired;
+int    _waveFiredAt, _waveDescAt;
+bool Vanilla;
+int  VKills, VLeaks, VBlocks, VFired, VWaves;
+readonly List<IMyTerminalBlock> _dmgScan = new List<IMyTerminalBlock>();
 int    IgcSent;
 int    IgcRecv;
 int    IgcBadPayload;
@@ -65,6 +84,7 @@ Runtime.UpdateFrequency = UpdateFrequency.Update10;
 Wc = new WcPbApi();
 try { Ready = Wc.Activate(Me); } catch { Ready = false; }
 Igc = IGC.RegisterBroadcastListener(IGC_TAG);
+Vanilla = Storage != null && Storage.Contains("vanilla");
 if (Ready) Discover();
 }
 void Gossip() {
@@ -189,6 +209,18 @@ try { Ready = Wc.Activate(Me); } catch { Ready = false; }
 if (!Ready) { Echo("WeaponCore PB API unavailable."); return; }
 Discover();
 }
+if (arg == "vanilla" || arg == "active" || arg == "toggle") {
+Vanilla = arg == "toggle" ? !Vanilla : arg == "vanilla";
+Storage = Vanilla ? "vanilla" : "";
+if (Cur != null) CloseWave();
+foreach (var m in Mounts) {
+if (!Alive(m.Blk)) continue;
+m.Rung = 0;
+SetRange(m, m.BaseRange);
+}
+Echo("mode -> " + (Vanilla ? "VANILLA (passive control)" : "ACTIVE"));
+return;
+}
 if (arg == "rescan") { Discover(); }
 if (arg == "igc") {
 Gossip();
@@ -200,6 +232,32 @@ if (Mounts.Count == 0) { Discover(); if (Mounts.Count == 0) { Echo("No CoreSyste
 Now += Runtime.TimeSinceLastRun.TotalSeconds;
 Gossip();
 Inbound = FleetInbound();
+int lostNow = 0;
+if (Now >= DamagePollDue) {
+DamagePollDue = Now + DAMAGE_POLL_S;
+_dmgScan.Clear();
+GridTerminalSystem.GetBlocks(_dmgScan);
+int n = _dmgScan.Count;
+if (BlockCount >= 0 && n < BlockCount) lostNow = BlockCount - n;
+BlockCount = n;
+}
+if (Inbound < PrevInbound) PendingDrops += PrevInbound - Inbound;
+PrevInbound = Inbound;
+if (Cur != null) {
+if (Inbound > Cur.PeakIn) Cur.PeakIn = Inbound;
+if (lostNow > 0) {
+Cur.BlocksLost += lostNow;
+int leak = PendingDrops < lostNow ? PendingDrops : lostNow;
+if (leak > 0) { Cur.Leaks += leak; PendingDrops -= leak; }
+}
+double hot = 0.0;
+foreach (var m in Mounts) {
+if (!Alive(m.Blk)) continue;
+float h = Wc.GetWeaponHeatLevel(m.Blk, m.Parts.Count > 0 ? m.Parts[0] : 0);
+if (h > hot) hot = h;
+}
+if (hot > Cur.PeakHeat) Cur.PeakHeat = hot;
+}
 if (Inbound <= 0) {
 ZeroRuns++;
 foreach (var m in Mounts) {
@@ -207,10 +265,22 @@ if (!Alive(m.Blk)) continue;
 if (m.Rung != 0) { m.Rung = 0; m.LastDescend = -99.0; }
 SetRange(m, m.BaseRange);
 }
+if (Cur != null && ZeroRuns >= WAVE_GAP_TICKS) CloseWave();
 if (DEBUG_PANEL) Report();
 return;
 }
-if (ZeroRuns >= WAVE_GAP_TICKS) { Respread(); WaveCount++; }
+if (ZeroRuns >= WAVE_GAP_TICKS) {
+Respread();
+WaveCount++;
+Cur = new Wave();
+Cur.N = WaveCount;
+Cur.Start = Now;
+Cur.PeakIn = Inbound;
+Cur.Vanilla = Vanilla;
+_waveFiredAt = TotalSpawns;
+_waveDescAt = TotalDescents();
+PendingDrops = 0;
+}
 ZeroRuns = 0;
 bool lost = false;
 for (int i = Mounts.Count - 1; i >= 0; i--) {
@@ -218,6 +288,15 @@ if (!Alive(Mounts[i].Blk)) { ById.Remove(Mounts[i].Id); Mounts.RemoveAt(i); lost
 }
 if (lost) RescanDue = 0.0;
 if (Now >= RescanDue) { RescanDue = Now + RESCAN_S; Discover(); }
+if (Vanilla) {
+foreach (var m in Mounts) {
+if (!Alive(m.Blk)) continue;
+if (m.Rung != 0) m.Rung = 0;
+SetRange(m, m.BaseRange);
+}
+if (DEBUG_PANEL) Report();
+return;
+}
 foreach (var m in Mounts) {
 if (!Alive(m.Blk)) continue;
 if (m.SampleStart <= 0.0) m.SampleStart = Now;
@@ -258,6 +337,76 @@ m.AppliedRange = r;
 RangeWrites++;
 Wc.SetBlockTrackingRange(m.Blk, (float)r);
 }
+int TotalDescents() {
+int d = 0;
+foreach (var m in Mounts) d += m.Descents;
+return d;
+}
+void CloseWave() {
+Cur.Dur = Now - Cur.Start;
+Cur.Fired = TotalSpawns - _waveFiredAt;
+Cur.Descents = TotalDescents() - _waveDescAt;
+Cur.Kills += PendingDrops;
+PendingDrops = 0;
+Cur.Ended = Cur.Kills + Cur.Leaks;
+if (Cur.Vanilla) {
+VKills += Cur.Kills; VLeaks += Cur.Leaks;
+VBlocks += Cur.BlocksLost; VFired += Cur.Fired; VWaves++;
+} else {
+TotKills += Cur.Kills; TotLeaks += Cur.Leaks;
+TotBlocks += Cur.BlocksLost; TotFired += Cur.Fired;
+}
+Log.Add(Cur);
+while (Log.Count > LOG_WAVES) Log.RemoveAt(0);
+Cur = null;
+if (CUSTOMDATA_LOG) WriteLog();
+}
+void WriteLog() {
+var sb = new StringBuilder();
+sb.Append("FleetPD log   grid=").Append(Me.CubeGrid.EntityId % 1000000L)
+.Append("   hull ").Append(HullOrdinal + 1).Append('/').Append(HullCount)
+.Append("   mounts=").Append(Mounts.Count).AppendLine();
+sb.AppendLine("kill~ and leak~ are ESTIMATES. Nothing reports being hit, so the script");
+sb.AppendLine("correlates a fall in inbound count with a fall in grid block count.");
+sb.AppendLine("A leaker that destroys nothing is missed; splash may be overcounted.");
+sb.AppendLine();
+sb.AppendLine("wave  mode    dur  peakIn  ended  kill~  leak~  blocks  fired  r/kill~  desc  heat");
+for (int i = 0; i < Log.Count; i++) {
+var w = Log[i];
+sb.Append(w.N.ToString().PadLeft(4))
+.Append(w.Vanilla ? "  VAN" : "  act")
+.Append((w.Dur.ToString("0.0") + "s").PadLeft(7))
+.Append(w.PeakIn.ToString().PadLeft(8))
+.Append(w.Ended.ToString().PadLeft(7))
+.Append(w.Kills.ToString().PadLeft(7))
+.Append(w.Leaks.ToString().PadLeft(7))
+.Append(w.BlocksLost.ToString().PadLeft(8))
+.Append(w.Fired.ToString().PadLeft(7))
+.Append((w.Kills > 0 ? ((double)w.Fired / w.Kills).ToString("0.0") : "-").PadLeft(9))
+.Append(w.Descents.ToString().PadLeft(6))
+.Append(((int)(w.PeakHeat * 100)).ToString().PadLeft(5)).Append('%')
+.AppendLine();
+}
+sb.AppendLine();
+sb.AppendLine("mode      waves  kill~  leak~  blocks   fired  r/kill~  intercept");
+AppendTotals(sb, "ACTIVE", WaveCount - VWaves, TotKills, TotLeaks, TotBlocks, TotFired);
+AppendTotals(sb, "VANILLA", VWaves, VKills, VLeaks, VBlocks, VFired);
+sb.AppendLine();
+sb.AppendLine("Run the PB with argument 'vanilla' to collect the passive control, then");
+sb.AppendLine("'active' to resume. Compare the two intercept rates above.");
+Me.CustomData = sb.ToString();
+}
+void AppendTotals(StringBuilder sb, string label, int waves, int k, int l, int b, int f) {
+sb.Append(label.PadRight(9))
+.Append(waves.ToString().PadLeft(5))
+.Append(k.ToString().PadLeft(7))
+.Append(l.ToString().PadLeft(7))
+.Append(b.ToString().PadLeft(8))
+.Append(f.ToString().PadLeft(8))
+.Append((k > 0 ? ((double)f / k).ToString("0.0") : "-").PadLeft(9))
+.Append((k + l > 0 ? (100.0 * k / (k + l)).ToString("0.0") + "%" : "-").PadLeft(11))
+.AppendLine();
+}
 void Respread() {
 foreach (var m in Mounts) {
 m.Rung = m.OpeningRung;
@@ -266,7 +415,7 @@ m.LastDescend = -99.0;
 }
 void Report() {
 var sb = new StringBuilder();
-sb.Append("== FleetPD ==  t=").Append(Now.ToString("0")).Append("s  hull ")
+sb.Append(Vanilla ? "== FleetPD [VANILLA CONTROL] ==  t=" : "== FleetPD ==  t=").Append(Now.ToString("0")).Append("s  hull ")
 .Append(HullOrdinal + 1).Append('/').Append(HullCount).AppendLine();
 sb.Append("scan: ").Append(_seenBlocks).Append(" core blocks -> ")
 .Append(Mounts.Count).Append(" usable").AppendLine();
@@ -349,6 +498,15 @@ sb.AppendLine("  count without the net, so they will not engage.");
 } else if (LastPeerHeard >= 0.0 && Now - LastPeerHeard > 5.0) {
 sb.Append("  WARNING: no peer traffic for ")
 .Append((Now - LastPeerHeard).ToString("0")).Append("s (net dropping?)").AppendLine();
+}
+if (WaveCount > 0 || Cur != null) {
+sb.Append("-- stats --  kill~=").Append(TotKills).Append(" leak~=").Append(TotLeaks);
+if (TotKills + TotLeaks > 0)
+sb.Append(" intercept=")
+.Append((100.0 * TotKills / (TotKills + TotLeaks)).ToString("0")).Append('%');
+sb.Append(" blocksLost=").Append(TotBlocks);
+if (Cur != null) sb.Append("  [wave ").Append(Cur.N).Append(" live]");
+sb.AppendLine();
 }
 sb.Append("peersEver=").Append(PeersEverSeen)
 .Append("  runtime=").Append(Runtime.LastRunTimeMs.ToString("0.00")).Append("ms");
