@@ -28,6 +28,12 @@ if 'pdcImprovised' not in C.CATALOGUE:
     if hasattr(C, 'BY_SUBTYPE'):
         C.BY_SUBTYPE['sdx_pdcImprovised'] = e
 W.PDC_ALIAS.setdefault('PdcImprovised', 'pdcImprovised')
+# PDC_KIND (block subtype -> PDC_STATS key) is built at weapons.py IMPORT time from
+# PDC_ALIAS x CATALOGUE, so patching the alias afterwards is not enough: build_ship
+# places the block but never turns it into a mount. Without this line the run silently
+# builds ZERO mounts, charges the full 8 SCF points, and reports 48/48 leakers — which
+# looks like a devastating result and is actually an empty ship.
+W.PDC_KIND['sdx_pdcImprovised'] = 'PdcImprovised'
 
 import ladder as L
 import reroll as R

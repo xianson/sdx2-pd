@@ -204,6 +204,26 @@ window blind, which is why `fan d20 p10` scores 36.50 against stock's 5.92.
 measurable under a policy and save ammunition — but they cost ~1.8 leakers against thin
 streams, so it is scenario-dependent rather than free.
 
+### Genericity across PDC types — six of eight, split on RATE not accuracy
+3 hulls, salvo 48, 18 seeds, legal mount counts at 8 SCF points:
+
+| mount | rpm | dev | HHM | no PB | burst14 | DI k=4 | t(DI-bo) |
+|---|---|---|---|---|---|---|---|
+| PdcUnn | 2000 | 0.4 | 1 | 16.61 | 5.06 | **3.39** | -2.50 |
+| PdcMcrn | 1800 | 0.1 | 1 | 16.78 | 5.72 | **5.00** | -1.09 |
+| PdcOpa | 1200 | 0.16 | 1 | 21.11 | 14.72 | **9.89** | **-7.08** |
+| PdcUnnAdv | 1200 | 0.1 | 1 | 26.72 | 16.22 | 16.39 | +0.28 |
+| PdcImprovised | 900 | **0.5** | 1 | 22.33 | 19.00 | **14.83** | **-4.46** |
+| PdcPgenAdv | 3000 | 0.075 | 1 | 18.78 | 10.22 | **9.44** | -1.57 |
+| PdcMcrnAdv | **80** | 0.0 | 5 | **26.83** | 29.83 | 29.83 | 0.00 |
+| PdcOpaAdv | **30** | 0.0 | 11 | **38.94** | 39.50 | 39.50 | 0.00 |
+
+`PdcImprovised` benefits despite the worst dispersion in the mod, so the binding variable
+is RATE OF FIRE. For the two slow mounts NO SCRIPT beats every policy. Scaling the trigger
+by HealthHitModifier does NOT rescue them (K=1 gives 29.61 vs 29.83, t=-0.58) — a mount
+firing ~3 rounds inside the 2.4 s window loses more to range narrowing than a re-aim can
+win back. Exempt anything under ~100 rpm.
+
 ### Hardware — a dead end
 No legal 8-point mix beats pure **8× PdcMcrn**. PdcMcrnAdv loses despite its 160 m
 interaction radius (80 rpm cannot replace two 30 rd/s streams); a flak annulus loses

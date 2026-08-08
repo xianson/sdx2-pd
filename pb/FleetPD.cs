@@ -51,13 +51,13 @@
 //  speed), not scripted. This policy is tuned against Plasma220-class rounds.
 // ============================================================================
 
-const int    RUNG_COUNT     = 6;
 const int    K_INFLIGHT     = 4;      // one kill's worth of committed rounds
 const double REFRACTORY_S   = 0.35;   // min seconds between descents
 const int    WAVE_GAP_TICKS = 60;     // PB runs with inbound==0 => wave is over
 const double MIN_RANGE_M    = 300.0;  // never gate a mount below this
 const double MIN_RPM        = 100.0;  // below this, leave the mount ALONE
 const double RPM_SAMPLE_S   = 8.0;    // observation window for measured rate
+const double RESCAN_S       = 30.0;   // pick up built/repaired/destroyed mounts
 const bool   DEBUG_PANEL    = true;
 const string IGC_TAG        = "FleetPD.v1";
 const int    PEER_TIMEOUT   = 30;     // runs before a silent peer is dropped
@@ -65,6 +65,8 @@ const bool   FLEET_TILE     = true;   // offset opening rungs by hull ordinal
 
 // Rung fractions of each block's own max weapon range.
 static readonly double[] RUNGS = { 1.00, 0.80, 0.65, 0.50, 0.38, 0.28 };
+// Derived, never a second literal — a mismatch here would index out of bounds.
+static readonly int RUNG_COUNT = RUNGS.Length;
 
 WcPbApi Wc;
 bool Ready;
@@ -98,6 +100,7 @@ class Mount {
     public double SampleStart;
     public double Rpm;
     public bool   Exempt;        // slow mount: run no policy at all
+    public readonly List<int> Parts = new List<int>();
 }
 
 readonly List<Mount> Mounts = new List<Mount>();
@@ -106,6 +109,7 @@ readonly List<IMyTerminalBlock> _blocks = new List<IMyTerminalBlock>();
 readonly Dictionary<string, int> _map = new Dictionary<string, int>();
 
 double Now;
+double RescanDue;
 int    ZeroRuns = WAVE_GAP_TICKS;
 int    Inbound;
 
@@ -114,7 +118,9 @@ public Program() {
     Wc = new WcPbApi();
     try { Ready = Wc.Activate(Me); } catch { Ready = false; }
     Igc = IGC.RegisterBroadcastListener(IGC_TAG);
-    Igc.SetMessageCallback("");
+    // Deliberately NO SetMessageCallback: we poll in Gossip() on the Update10 tick.
+    // A callback plus an unconditional broadcast each run makes every hull wake every
+    // other hull, which then broadcasts again — a self-sustaining message storm.
     if (Ready) Discover();
 }
 
@@ -173,12 +179,16 @@ int FleetInbound() {
 
 // ---------------------------------------------------------------- discovery
 void Discover() {
-    foreach (var m in Mounts) Wc.UnMonitorProjectileCallback(m.Blk, 0, OnProjectile);
+    foreach (var m in Mounts) {
+        if (!Alive(m.Blk)) continue;          // never touch a closed block
+        foreach (var pid in m.Parts)
+            Wc.UnMonitorProjectileCallback(m.Blk, pid, OnProjectile);
+    }
     Mounts.Clear();
     ById.Clear();
     _blocks.Clear();
     GridTerminalSystem.GetBlocksOfType(_blocks,
-        b => b.IsSameConstructAs(Me) && Wc.HasCoreWeapon(b));
+        b => Alive(b) && b.IsSameConstructAs(Me) && Wc.HasCoreWeapon(b));
 
     int spread = 0;
     foreach (var b in _blocks) {
@@ -210,8 +220,10 @@ void Discover() {
         // spawn (Projectile.cs:352) and start=false at end of life
         // (ProjectileTypes.cs:120), so a running count is exact rather than
         // estimated. Register on every part of the block.
-        foreach (var kv in _map)
+        foreach (var kv in _map) {
+            mt.Parts.Add(kv.Value);
             Wc.MonitorProjectileCallback(b, kv.Value, OnProjectile);
+        }
         spread++;
     }
 }
@@ -224,6 +236,15 @@ void Discover() {
 int OpeningFor(int n) {
     int off = FLEET_TILE ? HullOrdinal : 0;
     return ((n + off) % RUNG_COUNT + RUNG_COUNT) % RUNG_COUNT;
+}
+
+// A destroyed PDC leaves a dangling IMyTerminalBlock. Calling into the WeaponCore
+// API with one reaches a component lookup on a closed entity, which is the classic
+// way a PB script throws. Everything that touches m.Blk goes through this first.
+static bool Alive(IMyTerminalBlock b) {
+    // NB: IMyCubeGrid in the INGAME api has no MarkedForClose (that is mod-api only),
+    // so Closed plus a non-null grid is the strongest check available to a PB.
+    return b != null && !b.Closed && b.CubeGrid != null;
 }
 
 void OnProjectile(long coreEnt, int partId, ulong projId, long targetId,
@@ -270,7 +291,17 @@ public void Main(string arg, UpdateType src) {
         ZeroRuns = 0;
     }
 
+    // Drop dead mounts and rescan if any went away. Cheap: reference checks only.
+    bool lost = false;
+    for (int i = Mounts.Count - 1; i >= 0; i--) {
+        if (!Alive(Mounts[i].Blk)) { ById.Remove(Mounts[i].Id); Mounts.RemoveAt(i); lost = true; }
+    }
+    if (lost) RescanDue = 0.0;
+    // Periodic rescan also picks up newly built or repaired mounts.
+    if (Now >= RescanDue) { RescanDue = Now + RESCAN_S; Discover(); }
+
     foreach (var m in Mounts) {
+        if (!Alive(m.Blk)) continue;
         // ---- measured rate of fire, and the slow-mount exemption.
         // MEASURED, not assumed: on PdcMcrnAdv (80 rpm) and PdcOpaAdv (30 rpm),
         // NO SCRIPT beats every range policy (26.8 vs 29.8, and 38.9 vs 39.5
@@ -328,6 +359,7 @@ void Report() {
       .Append("  inbound(fleet)=").Append(Inbound).AppendLine();
     sb.Append("own rounds airborne=").Append(air)
       .Append("  (descend at ").Append(K_INFLIGHT).Append(")").AppendLine();
+    if (Mounts.Count == 0) { Echo("FleetPD: no usable weapons."); return; }
     int ex = 0;
     foreach (var m in Mounts) if (m.Exempt) ex++;
     if (ex > 0) sb.Append("exempt (slow, <").Append((int)MIN_RPM).Append(" rpm)=")

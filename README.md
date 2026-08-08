@@ -26,7 +26,16 @@ occlusion), and the best script is a distant third.
 **The best script is one mechanism, not a stack.** A six-rung range ladder where each
 mount drops a rung when ≥4 of its own rounds are airborne. Sustained battle, 3 hulls,
 20 waves: **4.25 cumulative leakers and 14.5 waves survived**, against 21.75 / 5.6 for a
-shot-counting ladder and 71.5 / 2.6 for no script.
+shot-counting ladder and 71.5 / 2.6 for no script. Adding wave-boundary respread on top is
+byte-identical (they fix the same thing) and adding a per-hull edge cap makes it *worse*.
+
+It generalises across mounts, and the split is **rate of fire, not accuracy**. Six of the
+eight SDX2 PDCs benefit — including `PdcImprovised` at the worst dispersion in the mod
+(0.5°, 22.33 → 14.83 leakers). The two exceptions are `PdcMcrnAdv` (80 rpm) and
+`PdcOpaAdv` (30 rpm), where **no script beats every policy**: a mount that fires ~3 rounds
+inside the 2.4 s window loses more to range narrowing than a re-aim can recover. The PB
+script detects this by measuring its own rate of fire and exempts those mounts
+automatically.
 
 **The governing principle, from ~45 tested policies with no exceptions: redirect fire,
 never withhold it.** Everything that concentrates or re-prioritises engagement beat
@@ -113,3 +122,9 @@ The analysis, simulator, harness and PB script are mine.
   though the tax is policy-insensitive, so rankings hold.
 * The picket-formation result is from a single study at 14 seeds and **wants independent
   replication** — it currently makes most of the fire-control work moot.
+* **`sdx_pdcImprovised` is missing from the block catalogue** — a real bug, still open.
+  It is a genuine player-buildable weight-1.0 SCF mount, but the catalogue builder drops
+  it, so `build_ship` silently produces ZERO mounts while charging the full point cost.
+  `sim/run_opa_improv.py` injects it at runtime (note it must patch `weapons.PDC_KIND` as
+  well as the catalogue and alias, because that map is built at import time). Any
+  mixed-battery result in `docs/` predates the fix and therefore excludes this mount.
