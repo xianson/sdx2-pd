@@ -11,6 +11,8 @@ claim is unverified, it says so.
 
 ## Start here
 
+* **[`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md)** — prescriptive build sheet. Start here if
+  you just want to know what to fit.
 * **[`docs/DOCTRINE.md`](docs/DOCTRINE.md)** — what to do and why. Read section 0 first;
   it explains why most of the rest is calibrated against the wrong threat.
 * **[`pb/FleetPD.cs`](pb/FleetPD.cs)** — the PB script. Paste into a Programmable Block,
