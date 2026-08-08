@@ -6,3 +6,4 @@ obj/
 vectors.json
 tune_cache.json
 *_raw.json
+_selftest.txt
