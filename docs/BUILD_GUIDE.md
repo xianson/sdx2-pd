@@ -35,18 +35,31 @@ Do not put uniform pits on a fleet: consorts need ~77° off-axis to defend the l
 
 ## 2. Torpedoes
 
-**`LightTriple`, exclusively. 10 points, 3 tubes, 28.8 torpedoes/min.**
-`MediumTriple` is the same points and the same tubes for **12.0/min** — it fires
-`ShotsInBurst 1` at `rof 30`, where LightTriple empties its 3-round magazine in 1.3 s and
-reloads in 5 s. Same cost, less than half the output, invisible on a stat sheet.
+**The launcher fixes the warhead, and that decides everything.** Raw throughput is a trap:
+LightTriple has the best rate but fires Belter, the round PD stops easily.
+
+| launcher | pts | tubes | torp/min | warhead | leakers of 48 | eff. hits/pt/min |
+|---|---|---|---|---|---|---|
+| **MediumDouble** | 7 | 2 | 12.0 | **Torpedo220mmHekp** | **35.7** | **1.27** |
+| **LightDouble** | 7 | 2 | 12.0 | **Torpedo160mmBlastFrag** | **36.4** | **1.30** |
+| LightTriple | 10 | 3 | 28.8 | Torpedo160mmBelter | 3.3 | 0.20 |
+| MediumTriple | 10 | 3 | 12.0 | Torpedo220mmBelter | ~3 | 0.08 |
+| ImprovisedDouble | 7 | 2 | 14.4 | Torpedo190mmImprovised (free) | 2.2 | 0.16 |
+| LightSingle | 4 | 1 | 5.0 | Plasma + PlasmaAtt (interceptor) | -- | -- |
+
+**Buy Double launchers.** MediumDouble and LightDouble are ~6x more effective per point
+than LightTriple, because Hekp and BlastFrag fly the terminal S-weave that no point defence
+can lead. Use LightTriple/ImprovisedDouble only when you want cheap volume to saturate.
 
 | core | PDC pts → mounts | torpedo loadout | tubes | alpha | torp/min | TGC/min if sustained |
 |---|---|---|---|---|---|---|
-| Picket | 5 | 1× LightTriple + 1× Single | 4 | 4 | 34 | 811 |
-| Corvette | 8 | 2× LightTriple + 1× ImprovisedDouble | 8 | 8 | 72 | 1,728 |
-| Frigate | 12 | 5× LightTriple + 1× Single | 16 | 16 | 149 | 3,576 |
-| Cruiser | 26 | 7× LightTriple | 21 | 21 | 202 | 4,838 |
-| Carrier | 20 | 7× LightTriple | 21 | 21 | 202 | 4,838 |
+| Picket | 5 | 2× MediumDouble | 4 | 4 | 24 | 576 |
+| Corvette | 8 | 4× MediumDouble | 8 | 8 | 48 | 1,152 |
+| Frigate | 12 | 8× MediumDouble | 16 | 16 | 96 | 2,304 |
+| Cruiser | 26 | 10× MediumDouble | 20 | 20 | 120 | 2,880 |
+| Carrier | 20 | 10× MediumDouble | 20 | 20 | 120 | 2,880 |
+
+(Swap in LightTriple/ImprovisedDouble if you need volume over penetration.)
 
 ### Ammunition
 
@@ -107,30 +120,48 @@ Electromagnet against 40× for fixed — 7.5× for the convenience.
 
 ## 4. Formation
 
-**Three or more hulls on the threat axis. Not abreast.**
+**Three hulls on the threat axis at 0 / 2000 / 4000 m, ±250 m lateral.** The spacing is a
+real optimum, not a plateau — measured at salvo 96, above the saturation cliff:
 
-| layout | leakers (salvo 48) |
+| layout | leakers |
 |---|---|
-| abreast | 1.14 |
-| line, any spacing 500–3000 m | **0.00** |
-| line, 4000/8000 m | 0.21 |
-| one hull carrying everything | 3.07 |
+| abreast | 23.57 |
+| 0/500/1000 | 9.57 |
+| 0/1000/2000 | 4.71 |
+| **0/2000/4000** | **2.21** |
+| 0/3000/6000 | 5.64 |
+| 0/4000/8000 | **26.86 — worse than abreast** |
 
-Spacing is forgiving — anything from 500 m to 3000 m works. A screen's envelope intersects
-the torpedo track ~3× longer than a hull abreast and catches the boost phase. Keep ±250 m
-lateral offset so pass-by angular rate stays under the 0.1309 rad/tick slew cap.
+Spread too far and the line is worse than no formation at all. A screen's envelope
+intersects the torpedo track ~3x longer than a hull abreast and catches the boost phase;
+past ~3000 m separation that stops holding. Keep the +/-250 m lateral offset so pass-by
+angular rate stays under the 0.1309 rad/tick slew cap.
 
-**Hull count matters; gun distribution does not.** At 24 total PDC points every split from
-16/4/4 to **0/12/12** leaks 0.00 — the hull being shot at needs *no* point defence if two
-screens sit up-threat. Three 5-mount pickets (15 points) beat one 24-mount hull by 4×.
+**Distribution matters, and every station needs a real battery.** At 24 total PDC points:
+
+| lead/screen/screen | leakers |
+|---|---|
+| **4/10/10** | **1.79** |
+| 2/11/11 | 2.07 |
+| 8/8/8 | 2.21 |
+| 16/4/4 | 7.07 |
+| 12/6/6 | 16.00 |
+| 0/12/12 | 16.79 |
+| 24/0/0 (no line) | 32.71 |
+| 5/5/5 (15 pts) | 38.43 |
+
+Heavy screens and a light lead is right — but the lead still needs a few mounts (0/12/12
+collapses), and thin screens are the worst failure (12/6/6 is 7x worse than 8/8/8 at the
+same cost). **Rule: give every station at least ~8 mounts, then put surplus on the
+screens.**
+
+**Points beat hull count under saturation.** 5/5/5 across three hulls (15 points) scores
+38.43 -- WORSE than one hull carrying 24 (32.71). A pack of cheap lightly-armed hulls
+cannot defend itself against a real salvo, however good the geometry.
 
 **Lead with the cheap hull.** If the attacker targets the *front* picket instead of the
-hull behind it, the advantage inverts — 9.5 versus 4.0 abreast. This doctrine depends on
-the enemy shooting the valuable ship, which a good opponent will not reliably do.
-
-*Open: measured at salvo 48, below the saturation cliff, so several rows are pinned at
-0.00. Hull count and spacing are solid; whether a heavy or light screen wins under real
-saturation is unresolved.*
+hull behind it, the advantage inverts -- 9.5 versus 4.0 abreast. The doctrine depends on the
+enemy shooting the valuable ship, which a good opponent will not reliably do.
 
 ---
 
